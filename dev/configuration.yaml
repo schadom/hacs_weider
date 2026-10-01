@@ -1,0 +1,12 @@
+homeassistant:
+  name: Weider Test
+  unit_system: metric
+  time_zone: Europe/Vienna
+
+default_config:
+
+logger:
+  default: warning
+  logs:
+    custom_components.weider: debug
+    homeassistant.components.modbus: debug

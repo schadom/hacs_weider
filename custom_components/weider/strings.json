@@ -1,0 +1,19 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Connect a Weider WT16",
+        "description": "Enter the heat pump's Modbus TCP connection details.",
+        "data": {"host": "Host", "port": "Port", "unit_id": "Unit ID"}
+      },
+      "reconfigure": {
+        "title": "Reconfigure Weider WT16",
+        "description": "Enter the heat pump's Modbus TCP connection details.",
+        "data": {"host": "Host", "port": "Port", "unit_id": "Unit ID"}
+      }
+    },
+    "error": {"cannot_connect": "Failed to connect"},
+    "abort": {"already_configured": "This device is already configured", "reconfigure_successful": "Connection details updated"}
+  }
+}
+

@@ -1,0 +1,25 @@
+name: weider-dev
+
+services:
+  homeassistant:
+    image: ghcr.io/home-assistant/home-assistant:2026.9.4
+    ports:
+      - "127.0.0.1:${HA_PORT:-8123}:8123"
+    environment:
+      TZ: ${TZ:-Europe/Vienna}
+    volumes:
+      - ha-config:/config
+      - ./dev/configuration.yaml:/config/configuration.yaml:ro
+      - ./custom_components/weider:/config/custom_components/weider:ro
+
+  simulator:
+    image: ghcr.io/home-assistant/home-assistant:2026.9.4
+    profiles: [simulator]
+    entrypoint: [python, -u, /simulator.py]
+    environment:
+      MODBUS_HOST: "0.0.0.0"
+    volumes:
+      - ./dev/simulator.py:/simulator.py:ro
+
+volumes:
+  ha-config:

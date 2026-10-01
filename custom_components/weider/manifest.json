@@ -1,0 +1,15 @@
+{
+  "domain": "weider",
+  "name": "Weider WT16",
+  "codeowners": [
+    "@schadom"
+  ],
+  "config_flow": true,
+  "dependencies": ["modbus"],
+  "documentation": "https://github.com/schadom/hacs_weider",
+  "integration_type": "device",
+  "iot_class": "local_polling",
+  "issue_tracker": "https://github.com/schadom/hacs_weider/issues",
+  "loggers": ["modbus_connection"],
+  "version": "0.1.0"
+}

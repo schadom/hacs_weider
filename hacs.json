@@ -1,0 +1,9 @@
+{
+  "name": "Weider WT16",
+  "hacs": "2.0.5",
+  "homeassistant": "2026.9.0",
+  "content_in_root": false,
+  "render_readme": true,
+  "filename": "weider.zip",
+  "zip_release": true
+}
