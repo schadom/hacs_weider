@@ -3,9 +3,13 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import logging
 from typing import Any, Final
 
+from modbus_connection.exceptions import IllegalDataAddressError
 from modbus_connection.model import Component, discrete_input, gauge, integer, string, uint32
+
+_LOGGER = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True, slots=True)
@@ -79,7 +83,7 @@ class DigitalInputs(Component):
     """WT16 discrete inputs (function code 02)."""
 
     max_gap = 0
-    max_span = 50
+    max_span = 1
     flow_switch_1 = discrete_input(45)
     flow_switch_2 = discrete_input(69)
     compressor = discrete_input(679)
@@ -100,6 +104,28 @@ class DigitalInputs(Component):
     sg_ready_1 = discrete_input(706)
     sg_ready_2 = discrete_input(707)
     reserve = discrete_input(714)
+
+    async def async_update(self, *, notify: bool = True) -> None:
+        """Refresh supported inputs, excluding addresses rejected by this device."""
+        while True:
+            try:
+                await super().async_update(notify=notify)
+                return
+            except IllegalDataAddressError as err:
+                block = err.block
+                if block is None or block.space != "discrete" or block.count != 1:
+                    raise
+                unsupported = {
+                    name for name, field in self.resolved_fields.items()
+                    if field.address == block.address
+                }
+                if not unsupported:
+                    raise
+                self.restrict_fields(set(self.resolved_fields) - unsupported)
+                _LOGGER.warning(
+                    "Skipping unsupported digital input(s) %s at address %s",
+                    ", ".join(sorted(unsupported)), block.address,
+                )
 
 
 POINTS: Final[tuple[PointInfo, ...]] = (

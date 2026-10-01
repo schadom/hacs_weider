@@ -3,6 +3,7 @@
 from unittest.mock import patch
 
 from modbus_connection import ModbusError
+from modbus_connection.exceptions import IllegalDataAddressError, IllegalDataValueError
 from modbus_connection.mock import MockModbusConnection, WriteEvent
 import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
@@ -69,6 +70,84 @@ async def test_model_reads_and_fc16_writes(connection):
     assert events == [WriteEvent("holding", 1, [475], 16)]
     await device.async_update()
     assert device.settings.hot_water_target_temperature == 47.5
+
+
+@pytest.mark.parametrize("previously_supported", [False, True])
+async def test_unsupported_digital_inputs(connection, previously_supported):
+    unit = connection.for_unit(1)
+    device = WeiderWT16(unit)
+    unit.discrete_inputs[690] = True
+    if previously_supported:
+        await device.async_update()
+        assert device.digital_inputs.four_way_valve is True
+    read = unit.read_discrete_inputs
+    rejected = []
+
+    async def read_supported(address, count):
+        if any(address <= missing < address + count for missing in (690, 704)):
+            rejected.append(address)
+            raise IllegalDataAddressError()
+        return await read(address, count)
+
+    with patch.object(unit, "read_discrete_inputs", side_effect=read_supported):
+        await device.async_update()
+        assert device.digital_inputs.four_way_valve is None
+        assert device.digital_inputs.heating_block is None
+        assert device.digital_inputs.compressor is True
+        assert device.digital_inputs.reserve_1 is False
+        assert device.digital_inputs.utility_block is False
+        first_rejections = list(rejected)
+        unit.discrete_inputs[679] = False
+        await device.async_update()
+        assert device.digital_inputs.compressor is False
+        assert rejected == first_rejections
+    assert WeiderWT16(unit).digital_inputs.four_way_valve is None
+    assert "four_way_valve" in WeiderWT16(unit).digital_inputs.resolved_fields
+
+
+@pytest.mark.parametrize("error", [
+    ModbusError("offline"), TimeoutError("timed out"), IllegalDataValueError(),
+])
+async def test_digital_input_communication_errors_propagate(connection, error):
+    unit = connection.for_unit(1)
+    device = WeiderWT16(unit)
+    with patch.object(unit, "read_discrete_inputs", side_effect=error):
+        with pytest.raises(type(error)):
+            await device.async_update()
+    assert len(device.digital_inputs.resolved_fields) == 20
+
+
+@pytest.mark.parametrize("probe_only", [False, True])
+async def test_setup_with_unsupported_input(hass, connection, probe_only):
+    unit = connection.for_unit(1)
+    read = unit.read_discrete_inputs
+
+    async def read_supported(address, count):
+        if address <= 690 < address + count:
+            raise IllegalDataAddressError()
+        return await read(address, count)
+
+    with patch.object(unit, "read_discrete_inputs", side_effect=read_supported):
+        if probe_only:
+            with patch("custom_components.weider.async_setup_entry", return_value=True):
+                result = await hass.config_entries.flow.async_init(
+                    DOMAIN, context={"source": "user"}, data=CONNECTION_DATA,
+                )
+                await hass.async_block_till_done()
+            assert result["type"] is FlowResultType.CREATE_ENTRY
+            assert hass.data[DATA_MODBUS_CONNECTIONS] == {}
+            return
+        entry = make_entry(hass)
+        assert await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+        assert entry.state is ConfigEntryState.LOADED
+        valve = next(state for state in hass.states.async_all("binary_sensor")
+                     if "four_way_valve" in state.entity_id)
+        assert valve.state == "unknown"
+        assert entry.runtime_data.device.digital_inputs.compressor is True
+        await entry.runtime_data.async_refresh()
+        assert entry.runtime_data.last_update_success
+        assert await hass.config_entries.async_unload(entry.entry_id)
 
 
 def test_connection_schema():
