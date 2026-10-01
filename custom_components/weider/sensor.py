@@ -20,7 +20,7 @@ class WeiderSensor(WeiderEntity, SensorEntity):
     def __init__(self, coordinator, point: PointInfo) -> None:
         super().__init__(coordinator, point.key)
         self.point = point
-        self._attr_name = point.name
+        self._attr_translation_key = point.key
         self._attr_native_unit_of_measurement = point.unit
         if point.device_class:
             self._attr_device_class = SensorDeviceClass(point.device_class)

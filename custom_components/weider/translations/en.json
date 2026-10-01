@@ -6,6 +6,63 @@
     },
     "error": {"cannot_connect": "Failed to connect"},
     "abort": {"already_configured": "This device is already configured", "reconfigure_successful": "Connection details updated"}
+  },
+  "entity": {
+    "sensor": {
+      "hot_water_target_temperature": {"name": "Hot water target temperature"},
+      "room_target_temperature": {"name": "Room target temperature"},
+      "hot_water_temperature": {"name": "Hot water temperature"},
+      "room_temperature": {"name": "Room temperature"},
+      "flow_target_temperature": {"name": "Flow target temperature"},
+      "flow_temperature": {"name": "Flow temperature"},
+      "outdoor_temperature": {"name": "Outdoor temperature"},
+      "buffer_temperature": {"name": "Buffer temperature"},
+      "mixer_temperature": {"name": "Mixer temperature"},
+      "reserve_temperature_1": {"name": "Reserve sensor temperature 1"},
+      "reserve_temperature_2": {"name": "Reserve sensor temperature 2"},
+      "reserve_temperature_3": {"name": "Reserve sensor temperature 3"},
+      "defrost_temperature": {"name": "Defrost sensor temperature"},
+      "return_temperature": {"name": "Return temperature"},
+      "source_inlet_temperature": {"name": "Source inlet temperature"},
+      "source_outlet_temperature": {"name": "Source outlet temperature"},
+      "superheat": {"name": "Superheat"},
+      "evaporation_temperature": {"name": "Evaporation temperature"},
+      "condensation_temperature": {"name": "Condensation temperature"},
+      "evaporator_temperature": {"name": "Evaporator temperature"},
+      "suction_gas_temperature": {"name": "Suction gas temperature"},
+      "hot_gas_temperature": {"name": "Hot gas temperature"},
+      "volume_flow": {"name": "Volume flow"},
+      "active_error": {"name": "Active error"},
+      "last_pump_runtime": {"name": "Last pump runtime"},
+      "last_hot_water_runtime": {"name": "Last hot water runtime"},
+      "mixer_position": {"name": "Mixer position"}
+    },
+    "binary_sensor": {
+      "flow_switch_1": {"name": "Flow switch 1"},
+      "flow_switch_2": {"name": "Flow switch 2"},
+      "remote_fault": {"name": "Remote fault"},
+      "compressor": {"name": "Compressor"},
+      "heating_pump": {"name": "Heating pump"},
+      "source_pump": {"name": "Source / water / fan pump"},
+      "mixer_pump": {"name": "Mixer pump"},
+      "hot_water_pump": {"name": "Hot water pump"},
+      "four_way_valve": {"name": "Four-way valve"},
+      "reserve_1": {"name": "Reserve 1"},
+      "reserve_2": {"name": "Reserve 2"},
+      "reserve_3": {"name": "Reserve 3"},
+      "cooling_output": {"name": "Reserve 4 cooling output"},
+      "reserve_5": {"name": "Reserve 5"},
+      "hot_water_block": {"name": "Hot water block"},
+      "heating_block": {"name": "Heating block"},
+      "utility_block": {"name": "Utility company block"},
+      "sg_ready_1": {"name": "SG Ready 1"},
+      "sg_ready_2": {"name": "SG Ready 2"},
+      "reserve": {"name": "Reserve"}
+    },
+    "climate": {
+      "hot_water_temperature": {"name": "Hot water temperature"},
+      "room_temperature": {"name": "Room temperature"}
+    }
   }
 }
 

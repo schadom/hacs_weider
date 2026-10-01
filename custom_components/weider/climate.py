@@ -46,7 +46,7 @@ class WeiderClimate(WeiderEntity, ClimateEntity):
     def __init__(self, coordinator, description: ClimateDescription) -> None:
         super().__init__(coordinator, f"climate_{description.key}")
         self.description = description
-        self._attr_name = description.name
+        self._attr_translation_key = description.key
         self._attr_min_temp = description.minimum
         self._attr_max_temp = description.maximum
 

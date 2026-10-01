@@ -18,7 +18,7 @@ class WeiderBinarySensor(WeiderEntity, BinarySensorEntity):
     def __init__(self, coordinator, point: PointInfo) -> None:
         super().__init__(coordinator, point.key)
         self.point = point
-        self._attr_name = point.name
+        self._attr_translation_key = point.key
         if point.device_class:
             self._attr_device_class = BinarySensorDeviceClass(point.device_class)
 

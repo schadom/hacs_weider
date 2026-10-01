@@ -1,5 +1,7 @@
 """Regression tests using HA's shared connection and real Modbus models."""
 
+import json
+from pathlib import Path
 from unittest.mock import patch
 
 from modbus_connection import ModbusError
@@ -12,10 +14,12 @@ from homeassistant.components.modbus.connection import DATA_MODBUS_CONNECTIONS
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.data_entry_flow import FlowResultType
 from homeassistant.exceptions import HomeAssistantError
+from homeassistant.helpers import entity_registry as er
 
+from custom_components.weider.climate import DESCRIPTIONS
 from custom_components.weider.config_flow import STEP_USER
 from custom_components.weider.const import DOMAIN
-from custom_components.weider.vendor.weider_heatpump import WeiderWT16
+from custom_components.weider.vendor.weider_heatpump import BINARY_POINTS, POINTS, WeiderWT16
 
 pytestmark = pytest.mark.usefixtures("enable_custom_integrations")
 CONNECTION_DATA = {"host": "pump.local", "port": 502, "unit_id": 1}
@@ -233,6 +237,37 @@ async def test_reconfigure_legacy_entry(hass, connection):
     assert entry.entry_id == original_id
     assert entry.data == CONNECTION_DATA
     reload_entry.assert_called_once_with(entry.entry_id)
+
+
+@pytest.mark.parametrize("language", ["en", "de"])
+async def test_entity_translations(hass, connection, language):
+    integration_path = Path(__file__).resolve().parents[1] / "custom_components" / DOMAIN
+    translations = json.loads(
+        (integration_path / "translations" / f"{language}.json").read_text(encoding="utf-8")
+    )["entity"]
+    source = json.loads((integration_path / "strings.json").read_text(encoding="utf-8"))["entity"]
+    descriptions = {"sensor": POINTS, "binary_sensor": BINARY_POINTS, "climate": DESCRIPTIONS}
+    assert translations.keys() == source.keys() == descriptions.keys()
+    hass.config.language = language
+    entry = make_entry(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    registry = er.async_get(hass)
+    for platform, points in descriptions.items():
+        assert translations[platform].keys() == source[platform].keys() == {point.key for point in points}
+        for point in points:
+            assert source[platform][point.key]["name"] == point.name
+            if language == "en":
+                assert translations[platform][point.key] == source[platform][point.key]
+            key = f"climate_{point.key}" if platform == "climate" else point.key
+            entity_id = registry.async_get_entity_id(platform, DOMAIN, f"{entry.entry_id}_{key}")
+            assert entity_id is not None
+            state = hass.states.get(entity_id)
+            assert state is not None
+            name = translations[platform][point.key]["name"]
+            assert name
+            assert state.attributes["friendly_name"] == f"Weider WT16 {name}"
+    assert await hass.config_entries.async_unload(entry.entry_id)
 
 
 async def test_setup_poll_recovery_and_unload(hass, connection):
