@@ -12,6 +12,10 @@ Component to integrate with [Weider](https://www.weider.co.at) WT16 heat pumps.
 
 The device library is vendorized below `custom_components/weider/vendor`.
 
+## Screenshot
+
+![demo]
+
 ## Installation with HACS
 
 [![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=schadom&repository=hacs_weider&category=integration)
@@ -129,5 +133,6 @@ implemented.
 [hacs]: https://github.com/hacs/integration
 [hacsbadge]: https://img.shields.io/badge/HACS-Custom-41BDF5.svg?style=for-the-badge
 [license-shield]: https://img.shields.io/github/license/schadom/hacs_weider.svg?style=for-the-badge
+[demo]: https://raw.githubusercontent.com/schadom/hacs_weider/refs/heads/main/demo.png
 [releases-shield]: https://img.shields.io/github/release/schadom/hacs_weider.svg?style=for-the-badge
 [releases]: https://github.com/schadom/hacs_weider/releases
