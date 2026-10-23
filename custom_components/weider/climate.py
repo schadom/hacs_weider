@@ -4,7 +4,7 @@ from dataclasses import dataclass
 
 from modbus_connection import ModbusError
 
-from homeassistant.components.climate import ClimateEntity, ClimateEntityFeature, HVACMode
+from homeassistant.components.climate import ClimateEntity, ClimateEntityFeature, HVACAction, HVACMode
 from homeassistant.const import UnitOfTemperature
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
@@ -22,11 +22,12 @@ class ClimateDescription:
     target_key: str
     minimum: float
     maximum: float
+    pump_key: str
 
 
 DESCRIPTIONS = (
-    ClimateDescription("hot_water_temperature", "Hot water temperature", "hot_water_temperature", "hot_water_target_temperature", 15, 55),
-    ClimateDescription("room_temperature", "Room temperature", "room_temperature", "room_target_temperature", 15, 35),
+    ClimateDescription("hot_water_temperature", "Hot water temperature", "hot_water_temperature", "hot_water_target_temperature", 15, 55, "hot_water_pump"),
+    ClimateDescription("room_temperature", "Room temperature", "room_temperature", "room_target_temperature", 15, 35, "heating_pump"),
 )
 
 
@@ -67,4 +68,14 @@ class WeiderClimate(WeiderEntity, ClimateEntity):
         except (ModbusError, OSError, TimeoutError) as err:
             raise HomeAssistantError(f"Unable to set {self.description.name}: {err}") from err
         await self.coordinator.async_request_refresh()
+
+    @property
+    def hvac_action(self) -> HVACAction | None:
+        """Heating while the compressor and this circuit's pump both run."""
+        inputs = self.coordinator.device.digital_inputs
+        compressor = inputs.compressor
+        pump = getattr(inputs, self.description.pump_key)
+        if compressor is None or pump is None:
+            return None
+        return HVACAction.HEATING if compressor and pump else HVACAction.IDLE
 
