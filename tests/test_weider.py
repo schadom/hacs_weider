@@ -85,6 +85,19 @@ async def test_model_reads_and_fc16_writes(connection):
     assert device.settings.hot_water_target_temperature == 47.5
 
 
+@pytest.mark.parametrize(("raw", "expected"), [
+    (85, 8.5), (0, 0.0), (65516, -2.0), (65336, -20.0),
+])
+async def test_temperatures_below_zero(connection, raw, expected):
+    unit = connection.for_unit(1)
+    unit.input.update({15: raw, 27: raw, 31: raw})
+    device = WeiderWT16(unit)
+    await device.async_update()
+    assert device.measurements.outdoor_temperature == pytest.approx(expected)
+    assert device.measurements.source_inlet_temperature == pytest.approx(expected)
+    assert device.measurements.evaporation_temperature == pytest.approx(expected)
+
+
 @pytest.mark.parametrize("previously_supported", [False, True])
 async def test_unsupported_digital_inputs(connection, previously_supported):
     unit = connection.for_unit(1)

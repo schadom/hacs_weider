@@ -116,9 +116,9 @@ TCP test uses the same `tmodbus` backend as HA against the PyModbus simulator.
 
 ## Hardware verification
 
-The existing register addresses, unsigned temperature format, and default
-multi-register byte/word order are retained. Confirm these against your WT16
-documentation, especially for negative temperatures. The simulator checks the
+The existing register addresses and default multi-register byte/word order are
+retained. Temperatures are read as signed values, so readings below 0 °C decode
+correctly. Confirm these against your WT16 documentation. The simulator checks the
 software against this map, not the map against a real heat pump. Reads do not
 span undocumented gaps. Optional or firmware-specific registers that return an
 error can still make a full polling cycle fail; report the failing address and
