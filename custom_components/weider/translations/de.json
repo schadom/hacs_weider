@@ -35,7 +35,16 @@
       "active_error": {"name": "Aktuelle Störung"},
       "last_pump_runtime": {"name": "Letzte Pumpenlaufzeit"},
       "last_hot_water_runtime": {"name": "Letzte Warmwasserlaufzeit"},
-      "mixer_position": {"name": "Mischerstellung"}
+      "mixer_position": {"name": "Mischerstellung"},
+      "sg_ready_mode": {
+        "name": "SG-Ready-Modus",
+        "state": {
+          "bz1_utility_block": "BZ1 EVU-Sperre",
+          "bz2_normal": "BZ2 Normalbetrieb",
+          "bz3_increased": "BZ3 Verstärkter Betrieb",
+          "bz4_start": "BZ4 Anlaufbefehl"
+        }
+      }
     },
     "binary_sensor": {
       "flow_switch_1": {"name": "Strömungswächter 1"},

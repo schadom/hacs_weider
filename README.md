@@ -58,7 +58,7 @@ The simulator is only accessible inside the Compose network. It supplies fixed
 measurements and accepts target-temperature writes in memory; it does not model
 heat-pump physics, firmware behavior, or temperature limits.
 
-Expect 27 sensors, 20 binary sensors, and two temperature controls. The sample
+Expect 28 sensors, 20 binary sensors, and two temperature controls. The sample
 hot-water temperature is 42.5 C and its target is 45 C. Change a target and check
 that the target sensor updates. To test recovery, stop and restart the simulator:
 

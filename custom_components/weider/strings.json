@@ -43,7 +43,16 @@
       "active_error": {"name": "Active error"},
       "last_pump_runtime": {"name": "Last pump runtime"},
       "last_hot_water_runtime": {"name": "Last hot water runtime"},
-      "mixer_position": {"name": "Mixer position"}
+      "mixer_position": {"name": "Mixer position"},
+      "sg_ready_mode": {
+        "name": "SG Ready mode",
+        "state": {
+          "bz1_utility_block": "BZ1 Utility block",
+          "bz2_normal": "BZ2 Normal operation",
+          "bz3_increased": "BZ3 Increased operation",
+          "bz4_start": "BZ4 Start command"
+        }
+      }
     },
     "binary_sensor": {
       "flow_switch_1": {"name": "Flow switch 1"},

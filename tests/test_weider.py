@@ -20,6 +20,7 @@ from homeassistant.helpers import entity_registry as er
 from custom_components.weider.climate import DESCRIPTIONS
 from custom_components.weider.config_flow import STEP_USER
 from custom_components.weider.const import DOMAIN, FAILED_POLL_TOLERANCE
+from custom_components.weider.sensor import SG_READY_MODE
 from custom_components.weider.vendor.weider_heatpump import BINARY_POINTS, POINTS, WeiderWT16
 
 pytestmark = pytest.mark.usefixtures("enable_custom_integrations")
@@ -374,7 +375,7 @@ async def test_entity_translations(hass, connection, language):
         (integration_path / "translations" / f"{language}.json").read_text(encoding="utf-8")
     )["entity"]
     source = json.loads((integration_path / "strings.json").read_text(encoding="utf-8"))["entity"]
-    descriptions = {"sensor": POINTS, "binary_sensor": BINARY_POINTS, "climate": DESCRIPTIONS}
+    descriptions = {"sensor": (*POINTS, SG_READY_MODE), "binary_sensor": BINARY_POINTS, "climate": DESCRIPTIONS}
     assert translations.keys() == source.keys() == descriptions.keys()
     hass.config.language = language
     entry = make_entry(hass)
@@ -409,12 +410,59 @@ async def test_sensor_state_classes(hass, connection):
         assert state_class == (None if point.key == "active_error" else "measurement"), point.key
     assert await hass.config_entries.async_unload(entry.entry_id)
 
+@pytest.mark.parametrize(("utility_block", "sg_ready_1", "sg_ready_2", "expected"), [
+    (False, False, False, "bz2_normal"),
+    (False, False, True, "bz3_increased"),
+    (False, True, False, "bz4_start"),
+    (False, True, True, "bz2_normal"),
+    (True, False, False, "bz1_utility_block"),
+    (True, True, True, "bz1_utility_block"),
+])
+async def test_sg_ready_mode(hass, connection, utility_block, sg_ready_1, sg_ready_2, expected):
+    connection.for_unit(1).discrete_inputs.update(
+        {705: utility_block, 706: sg_ready_1, 707: sg_ready_2}
+    )
+    entry = make_entry(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    state = hass.states.get("sensor.weider_wt16_sg_ready_mode")
+    assert state.state == expected
+    assert state.attributes["options"] == [
+        "bz1_utility_block", "bz2_normal", "bz3_increased", "bz4_start",
+    ]
+    assert await hass.config_entries.async_unload(entry.entry_id)
+
+
+@pytest.mark.parametrize(("inputs", "expected"), [
+    ((None, False, True), "bz3_increased"),
+    ((True, None, None), "bz1_utility_block"),
+    ((False, None, True), None),
+    ((False, True, None), None),
+])
+def test_sg_ready_mode_with_missing_inputs(inputs, expected):
+    from custom_components.weider.sensor import sg_ready_mode
+
+    assert sg_ready_mode(*inputs) == expected
+
+
+@pytest.mark.parametrize("language", ["en", "de"])
+def test_sg_ready_mode_states_translated(language):
+    from custom_components.weider.sensor import SG_READY_OPTIONS
+
+    integration_path = Path(__file__).resolve().parents[1] / "custom_components" / DOMAIN
+    translations = json.loads(
+        (integration_path / "translations" / f"{language}.json").read_text(encoding="utf-8")
+    )
+    states = translations["entity"]["sensor"]["sg_ready_mode"]["state"]
+    assert set(states) == set(SG_READY_OPTIONS)
+    assert all(label.startswith(key[:3].upper()) for key, label in states.items())
+
 async def test_setup_poll_recovery_and_unload(hass, connection):
     entry = make_entry(hass)
     assert await hass.config_entries.async_setup(entry.entry_id)
     await hass.async_block_till_done()
     assert entry.state is ConfigEntryState.LOADED
-    assert len(hass.states.async_all("sensor")) == 27
+    assert len(hass.states.async_all("sensor")) == 28
     assert len(hass.states.async_all("binary_sensor")) == 20
     assert len(hass.states.async_all("climate")) == 2
     coordinator = entry.runtime_data
