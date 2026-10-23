@@ -333,6 +333,17 @@ async def test_entity_translations(hass, connection, language):
     assert await hass.config_entries.async_unload(entry.entry_id)
 
 
+async def test_sensor_state_classes(hass, connection):
+    entry = make_entry(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    registry = er.async_get(hass)
+    for point in POINTS:
+        entity_id = registry.async_get_entity_id("sensor", DOMAIN, f"{entry.entry_id}_{point.key}")
+        state_class = hass.states.get(entity_id).attributes.get("state_class")
+        assert state_class == (None if point.key == "active_error" else "measurement"), point.key
+    assert await hass.config_entries.async_unload(entry.entry_id)
+
 async def test_setup_poll_recovery_and_unload(hass, connection):
     entry = make_entry(hass)
     assert await hass.config_entries.async_setup(entry.entry_id)
