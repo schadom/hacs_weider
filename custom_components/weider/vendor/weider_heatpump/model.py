@@ -28,8 +28,12 @@ class PointInfo:
 
 
 def _temperature(address: int, *, writable: bool = False):
-    """Return the unsigned 0.1-scaled WT16 temperature format."""
-    return gauge(address, 0.1, signed=False, unit="°C", writable=writable)
+    """Return the signed 0.1-scaled WT16 temperature format.
+
+    Outdoor, source and refrigerant temperatures go below 0 °C, which the
+    device sends as two's complement (65516 is -2.0 °C).
+    """
+    return gauge(address, 0.1, unit="°C", writable=writable)
 
 
 class Measurements(Component):
