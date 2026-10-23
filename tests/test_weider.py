@@ -447,14 +447,14 @@ def test_sg_ready_mode_with_missing_inputs(inputs, expected):
 
 @pytest.mark.parametrize("language", ["en", "de"])
 def test_sg_ready_mode_states_translated(language):
-    from custom_components.weider.sensor import WeiderSgReadyModeSensor
+    from custom_components.weider.sensor import SG_READY_OPTIONS
 
     integration_path = Path(__file__).resolve().parents[1] / "custom_components" / DOMAIN
     translations = json.loads(
         (integration_path / "translations" / f"{language}.json").read_text(encoding="utf-8")
     )
     states = translations["entity"]["sensor"]["sg_ready_mode"]["state"]
-    assert set(states) == set(WeiderSgReadyModeSensor._attr_options)
+    assert set(states) == set(SG_READY_OPTIONS)
     assert all(label.startswith(key[:3].upper()) for key, label in states.items())
 
 async def test_setup_poll_recovery_and_unload(hass, connection):

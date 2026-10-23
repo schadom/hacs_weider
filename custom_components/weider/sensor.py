@@ -18,6 +18,7 @@ BZ1_UTILITY_BLOCK = "bz1_utility_block"
 BZ2_NORMAL = "bz2_normal"
 BZ3_INCREASED = "bz3_increased"
 BZ4_START = "bz4_start"
+SG_READY_OPTIONS = [BZ1_UTILITY_BLOCK, BZ2_NORMAL, BZ3_INCREASED, BZ4_START]
 SG_READY_MODE = PointInfo("sg_ready_mode", "SG Ready mode", "digital_inputs", device_class="enum")
 
 
@@ -86,7 +87,7 @@ class WeiderSgReadyModeSensor(WeiderEntity, SensorEntity):
     """The SG Ready operating state, derived from the digital inputs."""
 
     _attr_device_class = SensorDeviceClass.ENUM
-    _attr_options = [BZ1_UTILITY_BLOCK, BZ2_NORMAL, BZ3_INCREASED, BZ4_START]
+    _attr_options = SG_READY_OPTIONS
     _attr_translation_key = SG_READY_MODE.key
     _attr_icon = "mdi:transmission-tower"
 
