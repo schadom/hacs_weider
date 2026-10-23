@@ -123,7 +123,8 @@ software against this map, not the map against a real heat pump. Reads do not
 span undocumented gaps. Some firmware versions do not provide every register.
 The integration skips these optional registers if the device rejects them: room
 temperature and room target, mixer position, runtimes and the active error text.
-Their entities show as unknown, and the room temperature control is unavailable.
+The integration creates no entities for registers and digital inputs that the
+device does not provide. It logs each skipped field at info level when it starts.
 A rejected core register still makes the polling cycle fail; report the failing
 address and firmware version.
 

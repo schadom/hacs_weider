@@ -7,6 +7,15 @@ from .const import DOMAIN
 from .coordinator import WeiderCoordinator
 
 
+def is_supported(coordinator: WeiderCoordinator, component: str, key: str) -> bool:
+    """Return whether this device provides the field.
+
+    The first refresh runs before entities are created and drops fields the
+    device rejects, so platforms create entities for supported fields only.
+    """
+    return key in getattr(coordinator.device, component).resolved_fields
+
+
 class WeiderEntity(CoordinatorEntity[WeiderCoordinator]):
     """Common device identity for WT16 entities."""
 
