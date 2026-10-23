@@ -1,5 +1,6 @@
 """Regression tests using HA's shared connection and real Modbus models."""
 
+from datetime import timedelta
 import json
 from pathlib import Path
 from unittest.mock import patch
@@ -18,11 +19,19 @@ from homeassistant.helpers import entity_registry as er
 
 from custom_components.weider.climate import DESCRIPTIONS
 from custom_components.weider.config_flow import STEP_USER
-from custom_components.weider.const import DOMAIN
+from custom_components.weider.const import DOMAIN, FAILED_POLL_TOLERANCE
 from custom_components.weider.vendor.weider_heatpump import BINARY_POINTS, POINTS, WeiderWT16
 
 pytestmark = pytest.mark.usefixtures("enable_custom_integrations")
 CONNECTION_DATA = {"host": "pump.local", "port": 502, "unit_id": 1}
+HOT_WATER = "sensor.weider_wt16_hot_water_temperature"
+
+
+@pytest.fixture(autouse=True)
+def no_retry_delay():
+    """Retry failed polls immediately."""
+    with patch("custom_components.weider.coordinator.RETRY_DELAY", timedelta(0)):
+        yield
 
 
 @pytest.fixture
@@ -279,14 +288,25 @@ async def test_setup_poll_recovery_and_unload(hass, connection):
     assert len(hass.states.async_all("binary_sensor")) == 20
     assert len(hass.states.async_all("climate")) == 2
     coordinator = entry.runtime_data
-    connection.for_unit(1).fail_requests(ModbusError("offline"))
+    unit = connection.for_unit(1)
+    unit.fail_requests(ModbusError("offline"))
     with patch.object(hass.config_entries, "async_schedule_reload") as reload_entry:
+        for _ in range(FAILED_POLL_TOLERANCE - 1):
+            await coordinator.async_refresh()
+            await hass.async_block_till_done()
+            assert coordinator.last_update_success
+            assert hass.states.get(HOT_WATER).state == "42.5"
         await coordinator.async_refresh()
+        await hass.async_block_till_done()
         assert not coordinator.last_update_success
+        assert hass.states.get(HOT_WATER).state == "unavailable"
         connection.simulate_connection_lost()
-        connection.for_unit(1).fail_requests(None)
+        unit.fail_requests(None)
         await coordinator.async_refresh()
+        await hass.async_block_till_done()
         assert coordinator.last_update_success
+        assert coordinator.failed_polls == 0
+        assert hass.states.get(HOT_WATER).state == "42.5"
         reload_entry.assert_not_called()
     assert await hass.config_entries.async_unload(entry.entry_id)
     assert hass.data[DATA_MODBUS_CONNECTIONS] == {}
@@ -378,3 +398,46 @@ async def test_shared_connection_survives_one_entry_unload(hass, connection):
     assert await hass.config_entries.async_unload(second.entry_id)
     assert not connection.connected
     assert hass.data[DATA_MODBUS_CONNECTIONS] == {}
+
+async def test_connection_reset_is_retried_within_poll(hass, connection):
+    entry = make_entry(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    coordinator = entry.runtime_data
+    device = coordinator.device
+    update = device.async_update
+    calls = []
+
+    async def reset_once():
+        calls.append(None)
+        if len(calls) == 1:
+            connection.simulate_connection_lost()
+            raise ConnectionResetError(104, "Connection reset by peer")
+        await update()
+
+    connection.for_unit(1).input[13] = 500
+    with patch.object(device, "async_update", side_effect=reset_once):
+        await coordinator.async_refresh()
+    assert len(calls) == 2
+    assert coordinator.last_update_success
+    assert coordinator.failed_polls == 0
+    assert device.measurements.hot_water_temperature == 50
+    assert await hass.config_entries.async_unload(entry.entry_id)
+
+
+async def test_failed_poll_counter_resets_after_success(hass, connection):
+    entry = make_entry(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    coordinator = entry.runtime_data
+    unit = connection.for_unit(1)
+    for _ in range(3):
+        unit.fail_requests(ModbusError("offline"))
+        for _ in range(FAILED_POLL_TOLERANCE - 1):
+            await coordinator.async_refresh()
+            assert coordinator.last_update_success
+        unit.fail_requests(None)
+        await coordinator.async_refresh()
+        assert coordinator.failed_polls == 0
+    assert coordinator.last_update_success
+    assert await hass.config_entries.async_unload(entry.entry_id)

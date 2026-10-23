@@ -67,8 +67,10 @@ docker compose stop simulator
 docker compose --profile simulator start simulator
 ```
 
-Allow a polling cycle (30 seconds, plus connection timeouts) for availability to
-change. The connection should recover without reloading the integration.
+A failed poll is retried once immediately, because the shared connection reopens
+on the next request. Entities keep their last values until three consecutive polls
+have failed, so allow about 90 seconds (plus connection timeouts) for availability
+to change. The connection should recover without reloading the integration.
 
 To test a real device instead, start only Home Assistant:
 
