@@ -44,6 +44,7 @@ def make_entry(hass, **kwargs):
     """Register a Weider config entry."""
     entry = MockConfigEntry(
         domain=DOMAIN,
+        title=kwargs.pop("title", "Weider WT16"),
         data=kwargs.pop("data", CONNECTION_DATA),
         unique_id=kwargs.pop("unique_id", "pump.local_502_1"),
         **kwargs,
@@ -223,6 +224,26 @@ async def test_blank_host_does_not_probe(hass, connection):
     assert result["errors"] == {"base": "cannot_connect"}
     assert not connection.for_unit(1).read_events
 
+
+async def test_second_heat_pump_gets_distinct_name(hass, connection):
+    from homeassistant.helpers import device_registry as dr
+
+    first = make_entry(hass)
+    assert await hass.config_entries.async_setup(first.entry_id)
+    await hass.async_block_till_done()
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN, context={"source": "user"}, data={**CONNECTION_DATA, "unit_id": 2},
+    )
+    await hass.async_block_till_done()
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    assert result["title"] == "Weider WT16 (pump.local, unit 2)"
+    second = result["result"]
+    assert second.state is ConfigEntryState.LOADED
+    registry = dr.async_get(hass)
+    names = {registry.async_get_device({(DOMAIN, entry.entry_id)}).name for entry in (first, second)}
+    assert names == {"Weider WT16", "Weider WT16 (pump.local, unit 2)"}
+    assert await hass.config_entries.async_unload(first.entry_id)
+    assert await hass.config_entries.async_unload(second.entry_id)
 
 async def test_reconfigure_legacy_entry(hass, connection):
     entry = make_entry(hass, data={"connection": "old-entry", "unit_id": 1})
