@@ -12,6 +12,7 @@ from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
 from .coordinator import WeiderConfigEntry
 from .entity import WeiderEntity
+from .plausibility import plausible_temperature
 
 
 @dataclass(frozen=True, slots=True)
@@ -52,7 +53,9 @@ class WeiderClimate(WeiderEntity, ClimateEntity):
 
     @property
     def current_temperature(self) -> float | None:
-        return getattr(self.coordinator.device.measurements, self.description.current_key)
+        return plausible_temperature(
+            getattr(self.coordinator.device.measurements, self.description.current_key)
+        )
 
     @property
     def target_temperature(self) -> float | None:
