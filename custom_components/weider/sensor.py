@@ -2,7 +2,7 @@
 
 from .vendor.weider_heatpump import POINTS, PointInfo
 
-from homeassistant.components.sensor import SensorDeviceClass, SensorEntity
+from homeassistant.components.sensor import SensorDeviceClass, SensorEntity, SensorStateClass
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
@@ -24,6 +24,8 @@ class WeiderSensor(WeiderEntity, SensorEntity):
         self._attr_native_unit_of_measurement = point.unit
         if point.device_class:
             self._attr_device_class = SensorDeviceClass(point.device_class)
+        if point.key != "active_error":  # the only text point; the rest are measurements
+            self._attr_state_class = SensorStateClass.MEASUREMENT
 
     @property
     def native_value(self):
