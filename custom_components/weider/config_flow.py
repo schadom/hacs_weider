@@ -34,6 +34,12 @@ class WeiderConfigFlow(ConfigFlow, domain=DOMAIN):
         """Change connection details while preserving entity identities."""
         return await self._async_configure("reconfigure", user_input)
 
+    def _title(self, user_input: dict[str, Any]) -> str:
+        """Name the first heat pump plainly and tell further ones apart."""
+        if not self._async_current_entries(include_ignore=False):
+            return "Weider WT16"
+        return f"Weider WT16 ({user_input[CONF_HOST]}, unit {user_input[CONF_UNIT_ID]})"
+
     async def _async_configure(self, step_id: str, user_input: dict[str, Any] | None) -> ConfigFlowResult:
         errors: dict[str, str] = {}
         entry = self._get_reconfigure_entry() if step_id == "reconfigure" else None
@@ -60,7 +66,7 @@ class WeiderConfigFlow(ConfigFlow, domain=DOMAIN):
             else:
                 if entry is not None:
                     return self.async_update_reload_and_abort(entry, unique_id=unique_id, data=user_input)
-                return self.async_create_entry(title="Weider WT16", data=user_input)
+                return self.async_create_entry(title=self._title(user_input), data=user_input)
         return self.async_show_form(
             step_id=step_id,
             data_schema=self.add_suggested_values_to_schema(STEP_USER, user_input or (entry.data if entry else {})),

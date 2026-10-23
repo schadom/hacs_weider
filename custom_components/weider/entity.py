@@ -20,6 +20,6 @@ class WeiderEntity(CoordinatorEntity[WeiderCoordinator]):
             identifiers={(DOMAIN, entry.entry_id)},
             manufacturer="Weider",
             model="WT16",
-            name="Weider WT16",
+            name=entry.title,
         )
 
