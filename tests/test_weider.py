@@ -109,6 +109,46 @@ async def test_unsupported_digital_inputs(connection, previously_supported):
     assert "four_way_valve" in WeiderWT16(unit).digital_inputs.resolved_fields
 
 
+async def test_registers_read_in_blocks(connection):
+    unit = connection.for_unit(1)
+    device = WeiderWT16(unit)
+    await device.async_update()
+    blocks = {
+        kind: sorted((e.address, e.count) for e in unit.read_events if e.register_type == kind)
+        for kind in ("input", "holding", "discrete_input")
+    }
+    assert blocks["discrete_input"] == [(45, 1), (69, 1), (679, 4), (685, 2), (690, 6), (703, 5), (714, 1)]
+    assert blocks["input"] == [
+        (13, 9), (25, 5), (31, 1), (33, 1), (35, 3), (44, 1), (724, 1), (736, 1),
+        (60164, 2), (60168, 2), (63000, 16),
+    ]
+    assert blocks["holding"] == [(1, 1), (723, 1)]
+
+
+async def test_unsupported_input_inside_block(connection):
+    unit = connection.for_unit(1)
+    unit.discrete_inputs.update({691: True, 695: True})
+    unit.fail_read(690, IllegalDataAddressError(), register_type="discrete_input")
+    device = WeiderWT16(unit)
+    await device.async_update()
+    assert device.digital_inputs.four_way_valve is None
+    assert device.digital_inputs.reserve_1 is True
+    assert device.digital_inputs.reserve_5 is True
+    unit.read_events.clear()
+    await device.async_update()
+    discrete = [(e.address, e.count) for e in unit.read_events if e.register_type == "discrete_input"]
+    assert (691, 5) in discrete
+    assert not any(address <= 690 < address + count for address, count in discrete)
+
+
+async def test_unsupported_core_register_inside_block_still_fails(connection):
+    unit = connection.for_unit(1)
+    unit.fail_read(17, IllegalDataAddressError(), register_type="input")
+    device = WeiderWT16(unit)
+    with pytest.raises(IllegalDataAddressError):
+        await device.async_update()
+    assert "mixer_temperature" in device.measurements.resolved_fields
+
 @pytest.mark.parametrize("error", [
     ModbusError("offline"), TimeoutError("timed out"), IllegalDataValueError(),
 ])
