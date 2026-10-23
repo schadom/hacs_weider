@@ -240,7 +240,11 @@ async def test_second_heat_pump_gets_distinct_name(hass, connection):
     second = result["result"]
     assert second.state is ConfigEntryState.LOADED
     registry = dr.async_get(hass)
-    names = {registry.async_get_device({(DOMAIN, entry.entry_id)}).name for entry in (first, second)}
+    names = {
+        device.name
+        for entry in (first, second)
+        for device in dr.async_entries_for_config_entry(registry, entry.entry_id)
+    }
     assert names == {"Weider WT16", "Weider WT16 (pump.local, unit 2)"}
     assert await hass.config_entries.async_unload(first.entry_id)
     assert await hass.config_entries.async_unload(second.entry_id)
