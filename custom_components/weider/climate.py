@@ -51,6 +51,13 @@ class WeiderClimate(WeiderEntity, ClimateEntity):
         self._attr_max_temp = description.maximum
 
     @property
+    def available(self) -> bool:
+        """Unavailable if this device does not provide the target register."""
+        return super().available and (
+            self.description.target_key in self.coordinator.device.settings.resolved_fields
+        )
+
+    @property
     def current_temperature(self) -> float | None:
         return getattr(self.coordinator.device.measurements, self.description.current_key)
 

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 import logging
 from typing import Any, Final
@@ -30,6 +31,43 @@ class PointInfo:
 def _temperature(address: int, *, writable: bool = False):
     """Return the unsigned 0.1-scaled WT16 temperature format."""
     return gauge(address, 0.1, signed=False, unit="°C", writable=writable)
+
+
+async def _update_skipping_unsupported(
+    component: Component,
+    update: Callable[..., Awaitable[None]],
+    space: str,
+    optional: frozenset[str] | None,
+    *,
+    notify: bool,
+) -> None:
+    """Refresh a component, dropping optional fields the device rejects.
+
+    A rejected block is skipped only if every field it covers is optional
+    (``optional=None`` treats all fields as optional). Anything else is a
+    real error and propagates, so it is reported instead of hidden.
+    """
+    while True:
+        try:
+            await update(notify=notify)
+            return
+        except IllegalDataAddressError as err:
+            block = err.block
+            if block is None or block.space != space:
+                raise
+            unsupported = {
+                name for name, field in component.resolved_fields.items()
+                if field.address < block.address + block.count
+                and block.address < field.address + field.count
+            }
+            if not unsupported or (optional is not None and not unsupported <= optional):
+                raise
+            component.restrict_fields(set(component.resolved_fields) - unsupported)
+            _LOGGER.warning(
+                "Skipping unsupported %s %s at address %s",
+                "field" if len(unsupported) == 1 else "fields",
+                ", ".join(sorted(unsupported)), block.address,
+            )
 
 
 class Measurements(Component):
@@ -65,6 +103,18 @@ class Measurements(Component):
     last_hot_water_runtime = uint32(60168, unit="min")
     active_error = string(63000, 16)
 
+    # Registers that some firmware versions do not provide.
+    OPTIONAL_FIELDS: Final = frozenset({
+        "room_temperature", "mixer_position", "last_pump_runtime",
+        "last_hot_water_runtime", "active_error",
+    })
+
+    async def async_update(self, *, notify: bool = True) -> None:
+        """Refresh measurements, skipping optional registers this device rejects."""
+        await _update_skipping_unsupported(
+            self, super().async_update, "input", self.OPTIONAL_FIELDS, notify=notify,
+        )
+
 
 class Settings(Component):
     """Writable WT16 holding registers (function codes 03/16)."""
@@ -77,6 +127,15 @@ class Settings(Component):
     room_target_temperature = gauge(
         723, 0.1, signed=False, unit="°C", writable=True, force_fc16=True
     )
+
+    # Installations without a room sensor may not provide the room target.
+    OPTIONAL_FIELDS: Final = frozenset({"room_target_temperature"})
+
+    async def async_update(self, *, notify: bool = True) -> None:
+        """Refresh settings, skipping optional registers this device rejects."""
+        await _update_skipping_unsupported(
+            self, super().async_update, "holding", self.OPTIONAL_FIELDS, notify=notify,
+        )
 
 
 class DigitalInputs(Component):
@@ -107,25 +166,9 @@ class DigitalInputs(Component):
 
     async def async_update(self, *, notify: bool = True) -> None:
         """Refresh supported inputs, excluding addresses rejected by this device."""
-        while True:
-            try:
-                await super().async_update(notify=notify)
-                return
-            except IllegalDataAddressError as err:
-                block = err.block
-                if block is None or block.space != "discrete" or block.count != 1:
-                    raise
-                unsupported = {
-                    name for name, field in self.resolved_fields.items()
-                    if field.address == block.address
-                }
-                if not unsupported:
-                    raise
-                self.restrict_fields(set(self.resolved_fields) - unsupported)
-                _LOGGER.warning(
-                    "Skipping unsupported digital input(s) %s at address %s",
-                    ", ".join(sorted(unsupported)), block.address,
-                )
+        await _update_skipping_unsupported(
+            self, super().async_update, "discrete", None, notify=notify,
+        )
 
 
 POINTS: Final[tuple[PointInfo, ...]] = (

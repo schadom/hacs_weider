@@ -154,6 +154,47 @@ async def test_setup_with_unsupported_input(hass, connection, probe_only):
         assert await hass.config_entries.async_unload(entry.entry_id)
 
 
+@pytest.mark.parametrize(("field", "address"), [
+    ("room_temperature", 724), ("mixer_position", 736),
+    ("last_pump_runtime", 60164), ("last_hot_water_runtime", 60168),
+    ("active_error", 63000),
+])
+async def test_unsupported_optional_measurement(connection, field, address):
+    unit = connection.for_unit(1)
+    unit.fail_read(address, IllegalDataAddressError(), register_type="input")
+    device = WeiderWT16(unit)
+    await device.async_update()
+    assert getattr(device.measurements, field) is None
+    assert field not in device.measurements.resolved_fields
+    assert device.measurements.hot_water_temperature == 42.5
+    rejected_reads = len([e for e in unit.read_events if e.address == address])
+    await device.async_update()
+    assert len([e for e in unit.read_events if e.address == address]) == rejected_reads
+    assert field in WeiderWT16(unit).measurements.resolved_fields
+
+
+async def test_unsupported_core_measurement_still_fails(connection):
+    unit = connection.for_unit(1)
+    unit.fail_read(15, IllegalDataAddressError(), register_type="input")
+    device = WeiderWT16(unit)
+    with pytest.raises(IllegalDataAddressError):
+        await device.async_update()
+    assert "outdoor_temperature" in device.measurements.resolved_fields
+
+
+async def test_unsupported_room_target_disables_room_climate(hass, connection):
+    unit = connection.for_unit(1)
+    unit.fail_read(723, IllegalDataAddressError(), register_type="holding")
+    entry = make_entry(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    assert entry.state is ConfigEntryState.LOADED
+    assert hass.states.get("climate.weider_wt16_room_temperature").state == "unavailable"
+    assert hass.states.get("climate.weider_wt16_hot_water_temperature").state == "heat"
+    assert hass.states.get("sensor.weider_wt16_room_target_temperature").state == "unknown"
+    assert await hass.config_entries.async_unload(entry.entry_id)
+
+
 def test_connection_schema():
     assert STEP_USER({"host": "pump.local"}) == CONNECTION_DATA
 
