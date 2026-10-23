@@ -120,9 +120,12 @@ The existing register addresses and default multi-register byte/word order are
 retained. Temperatures are read as signed values, so readings below 0 °C decode
 correctly. Confirm these against your WT16 documentation. The simulator checks the
 software against this map, not the map against a real heat pump. Reads do not
-span undocumented gaps. Optional or firmware-specific registers that return an
-error can still make a full polling cycle fail; report the failing address and
-firmware version rather than suppressing it silently.
+span undocumented gaps. Some firmware versions do not provide every register.
+The integration skips these optional registers if the device rejects them: room
+temperature and room target, mixer position, runtimes and the active error text.
+Their entities show as unknown, and the room temperature control is unavailable.
+A rejected core register still makes the polling cycle fail; report the failing
+address and firmware version.
 
 The climate entities expose temperature targets only. Their `heat` mode denotes
 the supported control mode, not compressor activity; the compressor binary
