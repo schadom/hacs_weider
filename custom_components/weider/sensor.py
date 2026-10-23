@@ -8,6 +8,7 @@ from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
 from .coordinator import WeiderConfigEntry
 from .entity import WeiderEntity
+from .plausibility import plausible_temperature
 
 NO_ERROR = "none"
 
@@ -34,6 +35,8 @@ class WeiderSensor(WeiderEntity, SensorEntity):
         value = getattr(getattr(self.coordinator.device, self.point.component), self.point.key)
         if self.point.key == "active_error" and isinstance(value, str):
             return clean_error_text(value)
+        if self.point.device_class == "temperature":
+            return plausible_temperature(value)
         return value
 
 

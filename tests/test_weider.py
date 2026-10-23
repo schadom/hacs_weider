@@ -436,6 +436,20 @@ async def test_setup_failure_releases_connection(hass, connection):
     assert hass.data[DATA_MODBUS_CONNECTIONS] == {}
 
 
+@pytest.mark.parametrize(("raw", "expected"), [
+    (215, "21.5"), (1500, "150.0"), (1501, "unknown"), (32767, "unknown"),
+])
+async def test_implausible_room_temperature(hass, connection, raw, expected):
+    connection.for_unit(1).input[724] = raw
+    entry = make_entry(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    assert hass.states.get("sensor.weider_wt16_room_temperature").state == expected
+    climate = hass.states.get("climate.weider_wt16_room_temperature")
+    current = climate.attributes.get("current_temperature")
+    assert current == (None if expected == "unknown" else float(expected))
+    assert await hass.config_entries.async_unload(entry.entry_id)
+
 async def test_legacy_entry_has_actionable_error(hass, connection):
     entry = make_entry(hass, data={"connection": "old-entry", "unit_id": 1})
     assert not await hass.config_entries.async_setup(entry.entry_id)
