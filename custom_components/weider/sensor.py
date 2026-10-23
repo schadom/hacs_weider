@@ -9,6 +9,8 @@ from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 from .coordinator import WeiderConfigEntry
 from .entity import WeiderEntity
 
+NO_ERROR = "none"
+
 
 async def async_setup_entry(hass: HomeAssistant, entry: WeiderConfigEntry, async_add_entities: AddConfigEntryEntitiesCallback) -> None:
     async_add_entities(WeiderSensor(entry.runtime_data, point) for point in POINTS)
@@ -27,5 +29,18 @@ class WeiderSensor(WeiderEntity, SensorEntity):
 
     @property
     def native_value(self):
-        return getattr(getattr(self.coordinator.device, self.point.component), self.point.key)
+        value = getattr(getattr(self.coordinator.device, self.point.component), self.point.key)
+        if self.point.key == "active_error" and isinstance(value, str):
+            return clean_error_text(value)
+        return value
+
+
+def clean_error_text(value: str) -> str:
+    """Remove null and space padding from the device's error text.
+
+    The device pads the 16-register text with null characters or spaces,
+    so "no error" arrives as padding only. That case reads as NO_ERROR.
+    """
+    text = " ".join(value.replace("\x00", " ").split())
+    return text or NO_ERROR
 

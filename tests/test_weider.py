@@ -334,6 +334,24 @@ async def test_legacy_entry_has_actionable_error(hass, connection):
     assert not connection.connected
 
 
+def _ascii_words(text: str) -> list[int]:
+    raw = text.encode("ascii").ljust(32, b"\x00")
+    return [raw[i] << 8 | raw[i + 1] for i in range(0, 32, 2)]
+
+
+@pytest.mark.parametrize(("raw", "expected"), [
+    ("", "none"), (" " * 32, "none"), ("E12 HD", "E12 HD"),
+    ("  E12   HD  ", "E12 HD"), ("\x00\x00E05", "E05"),
+])
+async def test_active_error_text(hass, connection, raw, expected):
+    words = _ascii_words(raw)
+    connection.for_unit(1).input.update(dict(zip(range(63000, 63016), words)))
+    entry = make_entry(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    assert hass.states.get("sensor.weider_wt16_active_error").state == expected
+    assert await hass.config_entries.async_unload(entry.entry_id)
+
 async def test_climate_write_failure_is_ha_error(hass, connection):
     entry = make_entry(hass)
     assert await hass.config_entries.async_setup(entry.entry_id)
