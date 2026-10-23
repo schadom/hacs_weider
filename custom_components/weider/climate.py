@@ -11,7 +11,7 @@ from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
 from .coordinator import WeiderConfigEntry
-from .entity import WeiderEntity
+from .entity import WeiderEntity, is_supported
 from .plausibility import plausible_temperature
 
 
@@ -33,7 +33,11 @@ DESCRIPTIONS = (
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: WeiderConfigEntry, async_add_entities: AddConfigEntryEntitiesCallback) -> None:
-    async_add_entities(WeiderClimate(entry.runtime_data, description) for description in DESCRIPTIONS)
+    coordinator = entry.runtime_data
+    async_add_entities(
+        WeiderClimate(coordinator, description) for description in DESCRIPTIONS
+        if is_supported(coordinator, "settings", description.target_key)
+    )
 
 
 class WeiderClimate(WeiderEntity, ClimateEntity):

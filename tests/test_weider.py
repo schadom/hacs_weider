@@ -209,9 +209,9 @@ async def test_setup_with_unsupported_input(hass, connection, probe_only):
         assert await hass.config_entries.async_setup(entry.entry_id)
         await hass.async_block_till_done()
         assert entry.state is ConfigEntryState.LOADED
-        valve = next(state for state in hass.states.async_all("binary_sensor")
-                     if "four_way_valve" in state.entity_id)
-        assert valve.state == "unknown"
+        assert not any("four_way_valve" in state.entity_id
+                       for state in hass.states.async_all("binary_sensor"))
+        assert len(hass.states.async_all("binary_sensor")) == 19
         assert entry.runtime_data.device.digital_inputs.compressor is True
         await entry.runtime_data.async_refresh()
         assert entry.runtime_data.last_update_success
@@ -246,18 +246,55 @@ async def test_unsupported_core_measurement_still_fails(connection):
     assert "outdoor_temperature" in device.measurements.resolved_fields
 
 
-async def test_unsupported_room_target_disables_room_climate(hass, connection):
+async def test_unsupported_room_target_creates_no_room_entities(hass, connection):
     unit = connection.for_unit(1)
     unit.fail_read(723, IllegalDataAddressError(), register_type="holding")
     entry = make_entry(hass)
     assert await hass.config_entries.async_setup(entry.entry_id)
     await hass.async_block_till_done()
     assert entry.state is ConfigEntryState.LOADED
-    assert hass.states.get("climate.weider_wt16_room_temperature").state == "unavailable"
+    assert hass.states.get("climate.weider_wt16_room_temperature") is None
     assert hass.states.get("climate.weider_wt16_hot_water_temperature").state == "heat"
-    assert hass.states.get("sensor.weider_wt16_room_target_temperature").state == "unknown"
+    assert hass.states.get("sensor.weider_wt16_room_target_temperature") is None
+    assert hass.states.get("sensor.weider_wt16_room_temperature") is not None
     assert await hass.config_entries.async_unload(entry.entry_id)
 
+
+async def test_unsupported_measurement_creates_no_entity(hass, connection, caplog):
+    import logging
+
+    unit = connection.for_unit(1)
+    unit.fail_read(736, IllegalDataAddressError(), register_type="input")
+    caplog.set_level(logging.INFO)
+    entry = make_entry(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    assert hass.states.get("sensor.weider_wt16_mixer_position") is None
+    assert len(hass.states.async_all("sensor")) == 27
+    records = [r for r in caplog.records if "Skipping unsupported" in r.getMessage()]
+    assert records
+    assert {r.levelno for r in records} == {logging.INFO}
+    assert "mixer_position" in records[0].getMessage()
+    assert await hass.config_entries.async_unload(entry.entry_id)
+
+
+async def test_unsupported_sg_ready_inputs_create_no_mode_sensor(hass, connection):
+    unit = connection.for_unit(1)
+    read = unit.read_discrete_inputs
+
+    async def read_supported(address, count):
+        if address <= 707 < address + count:
+            raise IllegalDataAddressError()
+        return await read(address, count)
+
+    with patch.object(unit, "read_discrete_inputs", side_effect=read_supported):
+        entry = make_entry(hass)
+        assert await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+        assert hass.states.get("sensor.weider_wt16_sg_ready_mode") is None
+        assert hass.states.get("binary_sensor.weider_wt16_sg_ready_2") is None
+        assert hass.states.get("binary_sensor.weider_wt16_sg_ready_1") is not None
+        assert await hass.config_entries.async_unload(entry.entry_id)
 
 def test_connection_schema():
     assert STEP_USER({"host": "pump.local"}) == CONNECTION_DATA

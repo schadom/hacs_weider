@@ -7,11 +7,15 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
 from .coordinator import WeiderConfigEntry
-from .entity import WeiderEntity
+from .entity import WeiderEntity, is_supported
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: WeiderConfigEntry, async_add_entities: AddConfigEntryEntitiesCallback) -> None:
-    async_add_entities(WeiderBinarySensor(entry.runtime_data, point) for point in BINARY_POINTS)
+    coordinator = entry.runtime_data
+    async_add_entities(
+        WeiderBinarySensor(coordinator, point) for point in BINARY_POINTS
+        if is_supported(coordinator, point.component, point.key)
+    )
 
 
 class WeiderBinarySensor(WeiderEntity, BinarySensorEntity):

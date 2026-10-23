@@ -93,7 +93,7 @@ async def _update_skipping_unsupported(
                 raise
             addresses = sorted(component.resolved_fields[name].address for name in unsupported)
             component.restrict_fields(set(component.resolved_fields) - unsupported)
-            _LOGGER.warning(
+            _LOGGER.info(
                 "Skipping unsupported %s %s at %s %s",
                 "field" if len(unsupported) == 1 else "fields",
                 ", ".join(sorted(unsupported)),

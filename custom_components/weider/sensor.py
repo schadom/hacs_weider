@@ -7,7 +7,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
 from .coordinator import WeiderConfigEntry
-from .entity import WeiderEntity
+from .entity import WeiderEntity, is_supported
 from .plausibility import plausible_temperature
 
 NO_ERROR = "none"
@@ -24,10 +24,13 @@ SG_READY_MODE = PointInfo("sg_ready_mode", "SG Ready mode", "digital_inputs", de
 
 async def async_setup_entry(hass: HomeAssistant, entry: WeiderConfigEntry, async_add_entities: AddConfigEntryEntitiesCallback) -> None:
     coordinator = entry.runtime_data
-    async_add_entities([
-        *(WeiderSensor(coordinator, point) for point in POINTS),
-        WeiderSgReadyModeSensor(coordinator),
-    ])
+    entities: list[SensorEntity] = [
+        WeiderSensor(coordinator, point) for point in POINTS
+        if is_supported(coordinator, point.component, point.key)
+    ]
+    if all(is_supported(coordinator, "digital_inputs", key) for key in ("sg_ready_1", "sg_ready_2")):
+        entities.append(WeiderSgReadyModeSensor(coordinator))
+    async_add_entities(entities)
 
 
 class WeiderSensor(WeiderEntity, SensorEntity):
