@@ -492,6 +492,24 @@ async def test_climate_write_updates_target(hass, connection):
     assert await hass.config_entries.async_unload(entry.entry_id)
 
 
+@pytest.mark.parametrize(("compressor", "hot_water_pump", "heating_pump", "hot_water", "room"), [
+    (True, True, False, "heating", "idle"),
+    (True, False, True, "idle", "heating"),
+    (False, True, True, "idle", "idle"),
+])
+async def test_climate_hvac_action(
+    hass, connection, compressor, hot_water_pump, heating_pump, hot_water, room,
+):
+    connection.for_unit(1).discrete_inputs.update(
+        {679: compressor, 685: hot_water_pump, 680: heating_pump}
+    )
+    entry = make_entry(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    assert hass.states.get("climate.weider_wt16_hot_water_temperature").attributes["hvac_action"] == hot_water
+    assert hass.states.get("climate.weider_wt16_room_temperature").attributes["hvac_action"] == room
+    assert await hass.config_entries.async_unload(entry.entry_id)
+
 async def test_shared_connection_survives_one_entry_unload(hass, connection):
     first = make_entry(hass)
     assert await hass.config_entries.async_setup(first.entry_id)

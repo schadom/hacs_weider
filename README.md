@@ -128,9 +128,10 @@ A rejected core register still makes the polling cycle fail; report the failing
 address and firmware version.
 
 The climate entities expose temperature targets only. Their `heat` mode denotes
-the supported control mode, not compressor activity; the compressor binary
-sensor reports that separately. On/off and heating/cooling mode changes are not
-implemented.
+the supported control mode, not compressor activity. Their action shows
+`heating` while the compressor and the circuit's pump both run: the hot water
+pump for hot water, the heating pump for the room. Otherwise it shows `idle`.
+On/off and heating/cooling mode changes are not implemented.
 
 [hacs_weider]: https://github.com/schadom/hacs_weider
 [commits-shield]: https://img.shields.io/github/commit-activity/y/schadom/hacs_weider.svg?style=for-the-badge
