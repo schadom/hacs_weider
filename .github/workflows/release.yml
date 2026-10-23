@@ -9,6 +9,15 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v4
+      - name: Set manifest version from release tag
+        env:
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          version="${TAG#v}"
+          jq --arg version "$version" '.version = $version' \
+            custom_components/weider/manifest.json > manifest.tmp
+          mv manifest.tmp custom_components/weider/manifest.json
+          grep -F "\"version\": \"$version\"" custom_components/weider/manifest.json
       - name: Build integration archive
         run: cd custom_components/weider && zip -r ../../weider.zip .
       - uses: softprops/action-gh-release@v2
