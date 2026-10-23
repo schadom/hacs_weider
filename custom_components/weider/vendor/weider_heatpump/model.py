@@ -37,6 +37,27 @@ def _temperature(address: int, *, writable: bool = False):
     return gauge(address, 0.1, unit="°C", writable=writable)
 
 
+_READERS: Final = {
+    "input": "read_input_registers",
+    "holding": "read_holding_registers",
+    "discrete": "read_discrete_inputs",
+    "coil": "read_coils",
+}
+
+
+async def _rejected_fields(component: Component, space: str, names: set[str]) -> set[str]:
+    """Read each field on its own and return those the device rejects."""
+    read = getattr(component.modbus_unit, _READERS[space])
+    rejected = set()
+    for name in sorted(names):
+        field = component.resolved_fields[name]
+        try:
+            await read(field.address, field.count)
+        except IllegalDataAddressError:
+            rejected.add(name)
+    return rejected
+
+
 async def _update_skipping_unsupported(
     component: Component,
     update: Callable[..., Awaitable[None]],
@@ -47,9 +68,11 @@ async def _update_skipping_unsupported(
 ) -> None:
     """Refresh a component, dropping optional fields the device rejects.
 
-    A rejected block is skipped only if every field it covers is optional
-    (``optional=None`` treats all fields as optional). Anything else is a
-    real error and propagates, so it is reported instead of hidden.
+    If the device rejects a block of several fields, each field is read on
+    its own to find the unsupported ones. Unsupported fields are skipped only
+    if they are all optional (``optional=None`` treats all fields as
+    optional). Anything else is a real error and propagates, so it is
+    reported instead of hidden.
     """
     while True:
         try:
@@ -64,13 +87,18 @@ async def _update_skipping_unsupported(
                 if field.address < block.address + block.count
                 and block.address < field.address + field.count
             }
+            if len(unsupported) > 1:
+                unsupported = await _rejected_fields(component, space, unsupported)
             if not unsupported or (optional is not None and not unsupported <= optional):
                 raise
+            addresses = sorted(component.resolved_fields[name].address for name in unsupported)
             component.restrict_fields(set(component.resolved_fields) - unsupported)
             _LOGGER.warning(
-                "Skipping unsupported %s %s at address %s",
+                "Skipping unsupported %s %s at %s %s",
                 "field" if len(unsupported) == 1 else "fields",
-                ", ".join(sorted(unsupported)), block.address,
+                ", ".join(sorted(unsupported)),
+                "address" if len(addresses) == 1 else "addresses",
+                ", ".join(map(str, addresses)),
             )
 
 
@@ -78,7 +106,8 @@ class Measurements(Component):
     """Read-only WT16 input registers (function code 04)."""
 
     register_space = "input"
-    max_gap = 0
+    # max_gap = 1 merges directly adjacent registers only, never across a gap.
+    max_gap = 1
     max_span = 50
 
     hot_water_temperature = _temperature(13)
@@ -145,8 +174,9 @@ class Settings(Component):
 class DigitalInputs(Component):
     """WT16 discrete inputs (function code 02)."""
 
-    max_gap = 0
-    max_span = 1
+    # max_gap = 1 merges directly adjacent inputs only, never across a gap.
+    max_gap = 1
+    max_span = 50
     flow_switch_1 = discrete_input(45)
     flow_switch_2 = discrete_input(69)
     compressor = discrete_input(679)
