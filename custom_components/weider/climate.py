@@ -65,9 +65,10 @@ class WeiderClimate(WeiderEntity, ClimateEntity):
 
     @property
     def current_temperature(self) -> float | None:
-        return plausible_temperature(
-            getattr(self.coordinator.device.measurements, self.description.current_key)
-        )
+        device = self.coordinator.device
+        if self.description.current_key == "room_temperature":
+            return plausible_temperature(device.current_room_temperature)
+        return plausible_temperature(getattr(device.measurements, self.description.current_key))
 
     @property
     def target_temperature(self) -> float | None:

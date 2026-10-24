@@ -1,6 +1,6 @@
 """Sensors for Weider WT16."""
 
-from .vendor.weider_heatpump import POINTS, PointInfo
+from .vendor.weider_heatpump import POINTS, ROOM_TEMPERATURE_FIELDS, PointInfo
 
 from homeassistant.components.sensor import SensorDeviceClass, SensorEntity, SensorStateClass
 from homeassistant.core import HomeAssistant
@@ -27,6 +27,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: WeiderConfigEntry, async
     entities: list[SensorEntity] = [
         WeiderSensor(coordinator, point) for point in POINTS
         if is_supported(coordinator, point.component, point.key)
+        or (point.key == "room_temperature" and any(
+            is_supported(coordinator, "measurements", key) for key in ROOM_TEMPERATURE_FIELDS
+        ))
     ]
     if all(is_supported(coordinator, "digital_inputs", key) for key in ("sg_ready_1", "sg_ready_2")):
         entities.append(WeiderSgReadyModeSensor(coordinator))
@@ -48,7 +51,10 @@ class WeiderSensor(WeiderEntity, SensorEntity):
 
     @property
     def native_value(self):
-        value = getattr(getattr(self.coordinator.device, self.point.component), self.point.key)
+        if self.point.key == "room_temperature":
+            value = self.coordinator.device.current_room_temperature
+        else:
+            value = getattr(getattr(self.coordinator.device, self.point.component), self.point.key)
         if self.point.key == "active_error" and isinstance(value, str):
             return clean_error_text(value)
         if self.point.device_class == "temperature":
