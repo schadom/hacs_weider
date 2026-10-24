@@ -110,7 +110,8 @@ class Measurements(Component):
     max_gap = 1
     max_span = 50
 
-    # Room temperature measured by the room sensor (parameter BET.T.A.1).
+    # Room temperature measured by the room sensor (parameter BET.T.A.1),
+    # standard Modbus map.
     room_temperature = _temperature(12)
     hot_water_temperature = _temperature(13)
     flow_target_temperature = _temperature(14)
@@ -132,6 +133,9 @@ class Measurements(Component):
     suction_gas_temperature = _temperature(36)
     hot_gas_temperature = _temperature(37)
     volume_flow = gauge(44, 0.001, signed=False, unit="m³/h")
+    # Room temperature on a custom Modbus map that Weider configures on
+    # request. Such a map answers 0 at register 12 instead.
+    custom_map_room_temperature = _temperature(724)
     mixer_position = integer(736, signed=False)
     last_pump_runtime = uint32(60164, unit="min")
     last_hot_water_runtime = uint32(60168, unit="min")
@@ -139,7 +143,7 @@ class Measurements(Component):
 
     # Registers that some firmware versions do not provide.
     OPTIONAL_FIELDS: Final = frozenset({
-        "room_temperature", "mixer_position", "last_pump_runtime",
+        "room_temperature", "custom_map_room_temperature", "mixer_position", "last_pump_runtime",
         "last_hot_water_runtime", "active_error",
     })
 
@@ -253,6 +257,10 @@ BINARY_POINTS: Final[tuple[PointInfo, ...]] = tuple(
 )
 
 
+# Registers that can hold the room temperature, in order of preference.
+ROOM_TEMPERATURE_FIELDS: Final = ("room_temperature", "custom_map_room_temperature")
+
+
 class WeiderWT16:
     """Application-neutral representation of one Weider WT16."""
 
@@ -264,6 +272,22 @@ class WeiderWT16:
         self.measurements = Measurements(unit)
         self.settings = Settings(unit)
         self.digital_inputs = DigitalInputs(unit)
+
+    @property
+    def current_room_temperature(self) -> float | None:
+        """Return the room temperature from whichever register holds it.
+
+        The standard Modbus map provides it at register 12, a custom map at
+        register 724. A map answers 0 for the register it does not use, so 0
+        means "not provided" here; a real room temperature of exactly 0.0 °C
+        does not occur. Returns None if neither register holds a value.
+        """
+        for name in ROOM_TEMPERATURE_FIELDS:
+            if name in self.measurements.resolved_fields:
+                value = getattr(self.measurements, name)
+                if value:
+                    return value
+        return None
 
     async def async_update(self) -> None:
         """Refresh every component."""

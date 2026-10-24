@@ -122,7 +122,10 @@ correctly. Confirm these against your WT16 documentation. The simulator checks t
 software against this map, not the map against a real heat pump. Reads do not
 span undocumented gaps. Some firmware versions do not provide every register.
 The room temperature is read from input register 12 (`BET.T.A.1`, the measured
-sensor value) of the standard Modbus map.
+sensor value) of the standard Modbus map. Some heat pumps have a custom Modbus
+map that Weider configures on request. Such a map answers 0 at register 12 and
+provides the room temperature at register 724 instead. The integration then uses
+register 724. If both registers answer 0, the room temperature shows as unknown.
 The integration skips these optional registers if the device rejects them: room
 temperature and room target, mixer position, runtimes and the active error text.
 The integration creates no entities for registers and digital inputs that the

@@ -143,7 +143,7 @@ async def test_registers_read_in_blocks(connection):
     }
     assert blocks["discrete_input"] == [(45, 1), (69, 1), (679, 4), (685, 2), (690, 6), (703, 5), (714, 1)]
     assert blocks["input"] == [
-        (12, 10), (25, 5), (31, 1), (33, 1), (35, 3), (44, 1), (736, 1),
+        (12, 10), (25, 5), (31, 1), (33, 1), (35, 3), (44, 1), (724, 1), (736, 1),
         (60164, 2), (60168, 2), (63000, 16),
     ]
     assert blocks["holding"] == [(1, 1), (723, 1)]
@@ -219,7 +219,7 @@ async def test_setup_with_unsupported_input(hass, connection, probe_only):
 
 
 @pytest.mark.parametrize(("field", "address"), [
-    ("room_temperature", 12), ("mixer_position", 736),
+    ("room_temperature", 12), ("custom_map_room_temperature", 724), ("mixer_position", 736),
     ("last_pump_runtime", 60164), ("last_hot_water_runtime", 60168),
     ("active_error", 63000),
 ])
@@ -705,4 +705,61 @@ async def test_failed_poll_counter_resets_after_success(hass, connection):
         await coordinator.async_refresh()
         assert coordinator.failed_polls == 0
     assert coordinator.last_update_success
+    assert await hass.config_entries.async_unload(entry.entry_id)
+
+
+@pytest.mark.parametrize(("register_12", "register_724", "expected"), [
+    (215, 0, 21.5),  # standard map: 724 is not used
+    (0, 215, 21.5),  # custom map: 12 answers 0, the value is at 724
+    (215, 230, 21.5),  # both hold a value: the standard register wins
+    (0, 0, None),  # neither register holds a value
+])
+async def test_current_room_temperature(connection, register_12, register_724, expected):
+    unit = connection.for_unit(1)
+    unit.input.update({12: register_12, 724: register_724})
+    device = WeiderWT16(unit)
+    assert device.current_room_temperature is None
+    await device.async_update()
+    assert device.current_room_temperature == expected
+
+
+@pytest.mark.parametrize(("register_12", "register_724", "expected"), [
+    (215, 0, "21.5"), (0, 225, "22.5"), (0, 0, "unknown"),
+])
+async def test_room_temperature_entities_use_fallback(
+    hass, connection, register_12, register_724, expected
+):
+    connection.for_unit(1).input.update({12: register_12, 724: register_724})
+    entry = make_entry(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    assert hass.states.get("sensor.weider_wt16_room_temperature").state == expected
+    climate = hass.states.get("climate.weider_wt16_room_temperature")
+    current = climate.attributes.get("current_temperature")
+    assert current == (None if expected == "unknown" else float(expected))
+    assert await hass.config_entries.async_unload(entry.entry_id)
+
+
+async def test_room_temperature_entity_without_register_12(hass, connection):
+    """A map that rejects register 12 still gets the room temperature from 724."""
+    unit = connection.for_unit(1)
+    unit.fail_read(12, IllegalDataAddressError(), register_type="input")
+    unit.input[724] = 225
+    entry = make_entry(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    assert hass.states.get("sensor.weider_wt16_room_temperature").state == "22.5"
+    assert await hass.config_entries.async_unload(entry.entry_id)
+
+
+async def test_room_temperature_entity_without_room_registers(hass, connection):
+    unit = connection.for_unit(1)
+    for address in (12, 724):
+        unit.fail_read(address, IllegalDataAddressError(), register_type="input")
+    entry = make_entry(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    assert hass.states.get("sensor.weider_wt16_room_temperature") is None
+    climate = hass.states.get("climate.weider_wt16_room_temperature")
+    assert climate.attributes.get("current_temperature") is None
     assert await hass.config_entries.async_unload(entry.entry_id)
