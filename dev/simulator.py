@@ -10,15 +10,14 @@ from pymodbus.simulator import DataType, SimData, SimDevice
 
 def create_device() -> SimDevice:
     """Build independent input, holding and discrete-input address spaces."""
-    temperatures = [200] * 32
+    temperatures = [200] * 33
     for address, value in {
-        13: 425, 14: 350, 15: 85, 16: 320, 25: 345, 26: 290,
+        12: 215, 13: 425, 14: 350, 15: 85, 16: 320, 25: 345, 26: 290,
         27: 100, 28: 65, 29: 50, 31: 35, 33: 400, 37: 680, 44: 1234,
     }.items():
-        temperatures[address - 13] = value
+        temperatures[address - 12] = value
     inputs = [
-        SimData(13, values=temperatures, datatype=DataType.REGISTERS),
-        SimData(724, values=215, datatype=DataType.REGISTERS),
+        SimData(12, values=temperatures, datatype=DataType.REGISTERS),
         SimData(736, values=50, datatype=DataType.REGISTERS),
         SimData(60164, values=[0, 120], datatype=DataType.REGISTERS),
         SimData(60168, values=[0, 30], datatype=DataType.REGISTERS),

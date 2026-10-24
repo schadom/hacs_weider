@@ -40,7 +40,7 @@ def connection():
     """Replace only the wire transport, retaining HA's connection ownership."""
     connection = MockModbusConnection()
     unit = connection.for_unit(1)
-    unit.input.update({13: 425, 724: 215, 44: 1234, 60164: [1, 2]})
+    unit.input.update({12: 215, 13: 425, 44: 1234, 60164: [1, 2]})
     unit.holding.update({1: 450, 723: 220})
     unit.discrete_inputs[679] = True
     with patch(
@@ -74,7 +74,7 @@ async def test_model_reads_and_fc16_writes(connection):
     assert device.digital_inputs.compressor is True
     assert device.settings.hot_water_target_temperature == 45
     assert all(event.count <= 50 for event in unit.read_events)
-    assert not any(event.address <= 725 < event.address + event.count
+    assert not any(event.address <= 22 < event.address + event.count
                    for event in unit.read_events if event.register_type == "input")
     assert {event.register_type for event in unit.read_events} == {
         "input", "holding", "discrete_input"
@@ -143,7 +143,7 @@ async def test_registers_read_in_blocks(connection):
     }
     assert blocks["discrete_input"] == [(45, 1), (69, 1), (679, 4), (685, 2), (690, 6), (703, 5), (714, 1)]
     assert blocks["input"] == [
-        (13, 9), (25, 5), (31, 1), (33, 1), (35, 3), (44, 1), (724, 1), (736, 1),
+        (12, 10), (25, 5), (31, 1), (33, 1), (35, 3), (44, 1), (736, 1),
         (60164, 2), (60168, 2), (63000, 16),
     ]
     assert blocks["holding"] == [(1, 1), (723, 1)]
@@ -219,7 +219,7 @@ async def test_setup_with_unsupported_input(hass, connection, probe_only):
 
 
 @pytest.mark.parametrize(("field", "address"), [
-    ("room_temperature", 724), ("mixer_position", 736),
+    ("room_temperature", 12), ("mixer_position", 736),
     ("last_pump_runtime", 60164), ("last_hot_water_runtime", 60168),
     ("active_error", 63000),
 ])
@@ -565,7 +565,7 @@ async def test_setup_failure_releases_connection(hass, connection):
     (215, "21.5"), (1500, "150.0"), (1501, "unknown"), (32767, "unknown"),
 ])
 async def test_implausible_room_temperature(hass, connection, raw, expected):
-    connection.for_unit(1).input[724] = raw
+    connection.for_unit(1).input[12] = raw
     entry = make_entry(hass)
     assert await hass.config_entries.async_setup(entry.entry_id)
     await hass.async_block_till_done()

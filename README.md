@@ -121,6 +121,8 @@ retained. Temperatures are read as signed values, so readings below 0 °C decode
 correctly. Confirm these against your WT16 documentation. The simulator checks the
 software against this map, not the map against a real heat pump. Reads do not
 span undocumented gaps. Some firmware versions do not provide every register.
+The room temperature is read from input register 12 (`BET.T.A.1`, the measured
+sensor value) of the standard Modbus map.
 The integration skips these optional registers if the device rejects them: room
 temperature and room target, mixer position, runtimes and the active error text.
 The integration creates no entities for registers and digital inputs that the
