@@ -9,7 +9,7 @@ from homeassistant.exceptions import ConfigEntryError
 
 from .const import CONF_UNIT_ID
 from .coordinator import WeiderConfigEntry, WeiderCoordinator
-from .vendor.weider_heatpump import WeiderWT16
+from weider_modbus import WeiderWT16
 
 PLATFORMS = [Platform.BINARY_SENSOR, Platform.CLIMATE, Platform.SENSOR]
 

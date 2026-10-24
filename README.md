@@ -10,7 +10,9 @@
 
 Component to integrate with [Weider](https://www.weider.co.at) WT16 heat pumps.
 
-The device library is vendorized below `custom_components/weider/vendor`.
+Device communication is handled by the [weider-modbus](https://pypi.org/project/weider-modbus/)
+library ([source](https://github.com/schadom/weider-modbus)), which Home Assistant
+installs automatically.
 
 ## Screenshot
 
@@ -29,7 +31,8 @@ The device library is vendorized below `custom_components/weider/vendor`.
 For a manual install, copy `custom_components/weider` into Home Assistant's
 `custom_components` directory and restart Home Assistant.
 
-Requires Home Assistant **2026.9.0 or newer**; tested with **2026.9.4**.
+Requires Home Assistant **2026.10.0 or newer**; tested with **2026.10.3**. On older
+versions, HACS offers 1.2.3 at most.
 The integration uses Home Assistant's shared `modbus` connection API. No separate
 connection integration or Modbus YAML configuration is needed. Units acquired
 through this API with identical connection parameters share a connection.
@@ -45,7 +48,7 @@ entity IDs; do not delete the entry just to change its connection details.
 ## Local Docker testing
 
 Install and start Docker Desktop on macOS, or Docker Engine with Compose on Linux.
-From this repository, start the pinned Home Assistant **2026.9.4** image with
+From this repository, start the pinned Home Assistant **2026.10.3** image with
 the optional synthetic WT16 server:
 
 ```sh

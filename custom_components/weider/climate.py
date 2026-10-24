@@ -1,38 +1,75 @@
 """Temperature controls for Weider WT16."""
 
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
+from typing import Any
 
 from modbus_connection import ModbusError
+from weider_modbus import (
+    HOT_WATER_TARGET_MAX,
+    HOT_WATER_TARGET_MIN,
+    ROOM_TARGET_MAX,
+    ROOM_TARGET_MIN,
+    TARGET_STEP,
+    WeiderWT16,
+    plausible_temperature,
+)
 
 from homeassistant.components.climate import ClimateEntity, ClimateEntityFeature, HVACAction, HVACMode
-from homeassistant.const import UnitOfTemperature
+from homeassistant.const import ATTR_TEMPERATURE, UnitOfTemperature
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
-from .coordinator import WeiderConfigEntry
+from .coordinator import WeiderConfigEntry, WeiderCoordinator
 from .entity import WeiderEntity, is_supported
-from .plausibility import plausible_temperature
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(frozen=True, kw_only=True)
 class ClimateDescription:
+    """Describes a target-temperature control."""
+
     key: str
     name: str
-    current_key: str
+    current_fn: Callable[[WeiderWT16], float | None]
     target_key: str
+    set_fn: Callable[[WeiderWT16, float], Awaitable[None]]
     minimum: float
     maximum: float
     pump_key: str
 
 
 DESCRIPTIONS = (
-    ClimateDescription("hot_water_temperature", "Hot water temperature", "hot_water_temperature", "hot_water_target_temperature", 15, 55, "hot_water_pump"),
-    ClimateDescription("room_temperature", "Room temperature", "room_temperature", "room_target_temperature", 15, 35, "heating_pump"),
+    ClimateDescription(
+        key="hot_water_temperature",
+        name="Hot water temperature",
+        current_fn=lambda device: device.measurements.hot_water_temperature,
+        target_key="hot_water_target_temperature",
+        set_fn=lambda device, value: device.async_set_hot_water_target(value),
+        minimum=HOT_WATER_TARGET_MIN,
+        maximum=HOT_WATER_TARGET_MAX,
+        pump_key="hot_water_pump",
+    ),
+    ClimateDescription(
+        key="room_temperature",
+        name="Room temperature",
+        # Register 12 on the standard Modbus map, register 724 on a custom map.
+        current_fn=lambda device: device.current_room_temperature,
+        target_key="room_target_temperature",
+        set_fn=lambda device, value: device.async_set_room_target(value),
+        minimum=ROOM_TARGET_MIN,
+        maximum=ROOM_TARGET_MAX,
+        pump_key="heating_pump",
+    ),
 )
 
 
-async def async_setup_entry(hass: HomeAssistant, entry: WeiderConfigEntry, async_add_entities: AddConfigEntryEntitiesCallback) -> None:
+async def async_setup_entry(
+    hass: HomeAssistant,
+    entry: WeiderConfigEntry,
+    async_add_entities: AddConfigEntryEntitiesCallback,
+) -> None:
+    """Create controls for the targets this device provides."""
     coordinator = entry.runtime_data
     async_add_entities(
         WeiderClimate(coordinator, description) for description in DESCRIPTIONS
@@ -47,9 +84,9 @@ class WeiderClimate(WeiderEntity, ClimateEntity):
     _attr_hvac_mode = HVACMode.HEAT
     _attr_supported_features = ClimateEntityFeature.TARGET_TEMPERATURE
     _attr_temperature_unit = UnitOfTemperature.CELSIUS
-    _attr_target_temperature_step = 0.5
+    _attr_target_temperature_step = TARGET_STEP
 
-    def __init__(self, coordinator, description: ClimateDescription) -> None:
+    def __init__(self, coordinator: WeiderCoordinator, description: ClimateDescription) -> None:
         super().__init__(coordinator, f"climate_{description.key}")
         self.description = description
         self._attr_translation_key = description.key
@@ -65,22 +102,19 @@ class WeiderClimate(WeiderEntity, ClimateEntity):
 
     @property
     def current_temperature(self) -> float | None:
-        device = self.coordinator.device
-        if self.description.current_key == "room_temperature":
-            return plausible_temperature(device.current_room_temperature)
-        return plausible_temperature(getattr(device.measurements, self.description.current_key))
+        return plausible_temperature(self.description.current_fn(self.coordinator.device))
 
     @property
     def target_temperature(self) -> float | None:
         return getattr(self.coordinator.device.settings, self.description.target_key)
 
-    async def async_set_temperature(self, **kwargs) -> None:
-        temperature = kwargs.get("temperature")
+    async def async_set_temperature(self, **kwargs: Any) -> None:
+        temperature = kwargs.get(ATTR_TEMPERATURE)
         if temperature is None:
             return
         try:
-            await self.coordinator.device.settings.write(self.description.target_key, temperature)
-        except (ModbusError, OSError, TimeoutError) as err:
+            await self.description.set_fn(self.coordinator.device, temperature)
+        except (ModbusError, OSError, TimeoutError, ValueError) as err:
             raise HomeAssistantError(f"Unable to set {self.description.name}: {err}") from err
         await self.coordinator.async_request_refresh()
 
@@ -93,4 +127,3 @@ class WeiderClimate(WeiderEntity, ClimateEntity):
         if compressor is None or pump is None:
             return None
         return HVACAction.HEATING if compressor and pump else HVACAction.IDLE
-

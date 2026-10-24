@@ -4,7 +4,7 @@ import asyncio
 import logging
 
 from modbus_connection import ModbusError
-from .vendor.weider_heatpump import WeiderWT16
+from weider_modbus import WeiderWT16
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant

@@ -6,10 +6,11 @@ from pathlib import Path
 from unittest.mock import patch
 
 from modbus_connection import ModbusError
-from modbus_connection.exceptions import IllegalDataAddressError, IllegalDataValueError
-from modbus_connection.mock import MockModbusConnection, WriteEvent
+from modbus_connection.exceptions import IllegalDataAddressError
+from modbus_connection.mock import MockModbusConnection
 import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
+from weider_modbus import WeiderWT16
 
 from homeassistant.components.modbus.connection import DATA_MODBUS_CONNECTIONS
 from homeassistant.config_entries import ConfigEntryState
@@ -20,8 +21,8 @@ from homeassistant.helpers import entity_registry as er
 from custom_components.weider.climate import DESCRIPTIONS
 from custom_components.weider.config_flow import STEP_USER
 from custom_components.weider.const import DOMAIN, FAILED_POLL_TOLERANCE
-from custom_components.weider.sensor import SG_READY_MODE
-from custom_components.weider.vendor.weider_heatpump import BINARY_POINTS, POINTS, WeiderWT16
+from custom_components.weider.binary_sensor import BINARY_SENSORS
+from custom_components.weider.sensor import SENSORS
 
 pytestmark = pytest.mark.usefixtures("enable_custom_integrations")
 CONNECTION_DATA = {"host": "pump.local", "port": 502, "unit_id": 1}
@@ -63,128 +64,6 @@ def make_entry(hass, **kwargs):
     return entry
 
 
-async def test_model_reads_and_fc16_writes(connection):
-    unit = connection.for_unit(1)
-    device = WeiderWT16(unit)
-    await device.async_update()
-    assert device.measurements.hot_water_temperature == 42.5
-    assert device.measurements.room_temperature == 21.5
-    assert device.measurements.volume_flow == 1.234
-    assert device.measurements.last_pump_runtime == 65538
-    assert device.digital_inputs.compressor is True
-    assert device.settings.hot_water_target_temperature == 45
-    assert all(event.count <= 50 for event in unit.read_events)
-    assert not any(event.address <= 22 < event.address + event.count
-                   for event in unit.read_events if event.register_type == "input")
-    assert {event.register_type for event in unit.read_events} == {
-        "input", "holding", "discrete_input"
-    }
-    events = []
-    unit.on_write(events.append)
-    await device.settings.write("hot_water_target_temperature", 47.5)
-    assert events == [WriteEvent("holding", 1, [475], 16)]
-    await device.async_update()
-    assert device.settings.hot_water_target_temperature == 47.5
-
-
-@pytest.mark.parametrize(("raw", "expected"), [
-    (85, 8.5), (0, 0.0), (65516, -2.0), (65336, -20.0),
-])
-async def test_temperatures_below_zero(connection, raw, expected):
-    unit = connection.for_unit(1)
-    unit.input.update({15: raw, 27: raw, 31: raw})
-    device = WeiderWT16(unit)
-    await device.async_update()
-    assert device.measurements.outdoor_temperature == pytest.approx(expected)
-    assert device.measurements.source_inlet_temperature == pytest.approx(expected)
-    assert device.measurements.evaporation_temperature == pytest.approx(expected)
-
-
-@pytest.mark.parametrize("previously_supported", [False, True])
-async def test_unsupported_digital_inputs(connection, previously_supported):
-    unit = connection.for_unit(1)
-    device = WeiderWT16(unit)
-    unit.discrete_inputs[690] = True
-    if previously_supported:
-        await device.async_update()
-        assert device.digital_inputs.four_way_valve is True
-    read = unit.read_discrete_inputs
-    rejected = []
-
-    async def read_supported(address, count):
-        if any(address <= missing < address + count for missing in (690, 704)):
-            rejected.append(address)
-            raise IllegalDataAddressError()
-        return await read(address, count)
-
-    with patch.object(unit, "read_discrete_inputs", side_effect=read_supported):
-        await device.async_update()
-        assert device.digital_inputs.four_way_valve is None
-        assert device.digital_inputs.heating_block is None
-        assert device.digital_inputs.compressor is True
-        assert device.digital_inputs.reserve_1 is False
-        assert device.digital_inputs.utility_block is False
-        first_rejections = list(rejected)
-        unit.discrete_inputs[679] = False
-        await device.async_update()
-        assert device.digital_inputs.compressor is False
-        assert rejected == first_rejections
-    assert WeiderWT16(unit).digital_inputs.four_way_valve is None
-    assert "four_way_valve" in WeiderWT16(unit).digital_inputs.resolved_fields
-
-
-async def test_registers_read_in_blocks(connection):
-    unit = connection.for_unit(1)
-    device = WeiderWT16(unit)
-    await device.async_update()
-    blocks = {
-        kind: sorted((e.address, e.count) for e in unit.read_events if e.register_type == kind)
-        for kind in ("input", "holding", "discrete_input")
-    }
-    assert blocks["discrete_input"] == [(45, 1), (69, 1), (679, 4), (685, 2), (690, 6), (703, 5), (714, 1)]
-    assert blocks["input"] == [
-        (12, 10), (25, 5), (31, 1), (33, 1), (35, 3), (44, 1), (724, 1), (736, 1),
-        (60164, 2), (60168, 2), (63000, 16),
-    ]
-    assert blocks["holding"] == [(1, 1), (723, 1)]
-
-
-async def test_unsupported_input_inside_block(connection):
-    unit = connection.for_unit(1)
-    unit.discrete_inputs.update({691: True, 695: True})
-    unit.fail_read(690, IllegalDataAddressError(), register_type="discrete_input")
-    device = WeiderWT16(unit)
-    await device.async_update()
-    assert device.digital_inputs.four_way_valve is None
-    assert device.digital_inputs.reserve_1 is True
-    assert device.digital_inputs.reserve_5 is True
-    unit.read_events.clear()
-    await device.async_update()
-    discrete = [(e.address, e.count) for e in unit.read_events if e.register_type == "discrete_input"]
-    assert (691, 5) in discrete
-    assert not any(address <= 690 < address + count for address, count in discrete)
-
-
-async def test_unsupported_core_register_inside_block_still_fails(connection):
-    unit = connection.for_unit(1)
-    unit.fail_read(17, IllegalDataAddressError(), register_type="input")
-    device = WeiderWT16(unit)
-    with pytest.raises(IllegalDataAddressError):
-        await device.async_update()
-    assert "mixer_temperature" in device.measurements.resolved_fields
-
-@pytest.mark.parametrize("error", [
-    ModbusError("offline"), TimeoutError("timed out"), IllegalDataValueError(),
-])
-async def test_digital_input_communication_errors_propagate(connection, error):
-    unit = connection.for_unit(1)
-    device = WeiderWT16(unit)
-    with patch.object(unit, "read_discrete_inputs", side_effect=error):
-        with pytest.raises(type(error)):
-            await device.async_update()
-    assert len(device.digital_inputs.resolved_fields) == 20
-
-
 @pytest.mark.parametrize("probe_only", [False, True])
 async def test_setup_with_unsupported_input(hass, connection, probe_only):
     unit = connection.for_unit(1)
@@ -216,34 +95,6 @@ async def test_setup_with_unsupported_input(hass, connection, probe_only):
         await entry.runtime_data.async_refresh()
         assert entry.runtime_data.last_update_success
         assert await hass.config_entries.async_unload(entry.entry_id)
-
-
-@pytest.mark.parametrize(("field", "address"), [
-    ("room_temperature", 12), ("custom_map_room_temperature", 724), ("mixer_position", 736),
-    ("last_pump_runtime", 60164), ("last_hot_water_runtime", 60168),
-    ("active_error", 63000),
-])
-async def test_unsupported_optional_measurement(connection, field, address):
-    unit = connection.for_unit(1)
-    unit.fail_read(address, IllegalDataAddressError(), register_type="input")
-    device = WeiderWT16(unit)
-    await device.async_update()
-    assert getattr(device.measurements, field) is None
-    assert field not in device.measurements.resolved_fields
-    assert device.measurements.hot_water_temperature == 42.5
-    rejected_reads = len([e for e in unit.read_events if e.address == address])
-    await device.async_update()
-    assert len([e for e in unit.read_events if e.address == address]) == rejected_reads
-    assert field in WeiderWT16(unit).measurements.resolved_fields
-
-
-async def test_unsupported_core_measurement_still_fails(connection):
-    unit = connection.for_unit(1)
-    unit.fail_read(15, IllegalDataAddressError(), register_type="input")
-    device = WeiderWT16(unit)
-    with pytest.raises(IllegalDataAddressError):
-        await device.async_update()
-    assert "outdoor_temperature" in device.measurements.resolved_fields
 
 
 async def test_unsupported_room_target_creates_no_room_entities(hass, connection):
@@ -412,7 +263,7 @@ async def test_entity_translations(hass, connection, language):
         (integration_path / "translations" / f"{language}.json").read_text(encoding="utf-8")
     )["entity"]
     source = json.loads((integration_path / "strings.json").read_text(encoding="utf-8"))["entity"]
-    descriptions = {"sensor": (*POINTS, SG_READY_MODE), "binary_sensor": BINARY_POINTS, "climate": DESCRIPTIONS}
+    descriptions = {"sensor": SENSORS, "binary_sensor": BINARY_SENSORS, "climate": DESCRIPTIONS}
     assert translations.keys() == source.keys() == descriptions.keys()
     hass.config.language = language
     entry = make_entry(hass)
@@ -422,7 +273,8 @@ async def test_entity_translations(hass, connection, language):
     for platform, points in descriptions.items():
         assert translations[platform].keys() == source[platform].keys() == {point.key for point in points}
         for point in points:
-            assert source[platform][point.key]["name"] == point.name
+            if platform == "climate":
+                assert source[platform][point.key]["name"] == point.name
             if language == "en":
                 assert translations[platform][point.key] == source[platform][point.key]
             key = f"climate_{point.key}" if platform == "climate" else point.key
@@ -441,10 +293,11 @@ async def test_sensor_state_classes(hass, connection):
     assert await hass.config_entries.async_setup(entry.entry_id)
     await hass.async_block_till_done()
     registry = er.async_get(hass)
-    for point in POINTS:
-        entity_id = registry.async_get_entity_id("sensor", DOMAIN, f"{entry.entry_id}_{point.key}")
+    for description in SENSORS:
+        entity_id = registry.async_get_entity_id("sensor", DOMAIN, f"{entry.entry_id}_{description.key}")
         state_class = hass.states.get(entity_id).attributes.get("state_class")
-        assert state_class == (None if point.key == "active_error" else "measurement"), point.key
+        expected = None if description.key in ("active_error", "sg_ready_mode") else "measurement"
+        assert state_class == expected, description.key
     assert await hass.config_entries.async_unload(entry.entry_id)
 
 @pytest.mark.parametrize(("utility_block", "sg_ready_1", "sg_ready_2", "expected"), [
@@ -468,18 +321,6 @@ async def test_sg_ready_mode(hass, connection, utility_block, sg_ready_1, sg_rea
         "bz1_utility_block", "bz2_normal", "bz3_increased", "bz4_start",
     ]
     assert await hass.config_entries.async_unload(entry.entry_id)
-
-
-@pytest.mark.parametrize(("inputs", "expected"), [
-    ((None, False, True), "bz3_increased"),
-    ((True, None, None), "bz1_utility_block"),
-    ((False, None, True), None),
-    ((False, True, None), None),
-])
-def test_sg_ready_mode_with_missing_inputs(inputs, expected):
-    from custom_components.weider.sensor import sg_ready_mode
-
-    assert sg_ready_mode(*inputs) == expected
 
 
 @pytest.mark.parametrize("language", ["en", "de"])
@@ -706,21 +547,6 @@ async def test_failed_poll_counter_resets_after_success(hass, connection):
         assert coordinator.failed_polls == 0
     assert coordinator.last_update_success
     assert await hass.config_entries.async_unload(entry.entry_id)
-
-
-@pytest.mark.parametrize(("register_12", "register_724", "expected"), [
-    (215, 0, 21.5),  # standard map: 724 is not used
-    (0, 215, 21.5),  # custom map: 12 answers 0, the value is at 724
-    (215, 230, 21.5),  # both hold a value: the standard register wins
-    (0, 0, None),  # neither register holds a value
-])
-async def test_current_room_temperature(connection, register_12, register_724, expected):
-    unit = connection.for_unit(1)
-    unit.input.update({12: register_12, 724: register_724})
-    device = WeiderWT16(unit)
-    assert device.current_room_temperature is None
-    await device.async_update()
-    assert device.current_room_temperature == expected
 
 
 @pytest.mark.parametrize(("register_12", "register_724", "expected"), [
