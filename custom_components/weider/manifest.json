@@ -5,11 +5,20 @@
     "@schadom"
   ],
   "config_flow": true,
-  "dependencies": ["modbus"],
+  "dependencies": [
+    "modbus"
+  ],
   "documentation": "https://github.com/schadom/hacs_weider",
   "integration_type": "device",
   "iot_class": "local_polling",
   "issue_tracker": "https://github.com/schadom/hacs_weider/issues",
-  "loggers": ["modbus_connection", "tmodbus"],
+  "loggers": [
+    "modbus_connection",
+    "tmodbus",
+    "weider_modbus"
+  ],
+  "requirements": [
+    "weider-modbus==0.1.2"
+  ],
   "version": "0.1.0"
 }

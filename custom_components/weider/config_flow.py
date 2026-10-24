@@ -12,7 +12,7 @@ from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.selector import NumberSelector, NumberSelectorConfig, NumberSelectorMode, TextSelector
 
 from .const import CONF_UNIT_ID, DEFAULT_PORT, DEFAULT_UNIT_ID, DOMAIN
-from .vendor.weider_heatpump import WeiderWT16
+from weider_modbus import WeiderWT16
 
 STEP_USER = vol.Schema({
     vol.Required(CONF_HOST): vol.All(TextSelector(), vol.Length(min=1)),
