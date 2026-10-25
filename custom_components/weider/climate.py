@@ -112,6 +112,11 @@ class WeiderClimate(WeiderEntity, ClimateEntity):
         temperature = kwargs.get(ATTR_TEMPERATURE)
         if temperature is None:
             return
+        current = self.target_temperature
+        if current is not None and round(temperature, 1) == round(current, 1):
+            # The controller stores targets in flash memory, which tolerates a
+            # limited number of writes, so an unchanged target is not written.
+            return
         try:
             await self.description.set_fn(self.coordinator.device, temperature)
         except (ModbusError, OSError, TimeoutError, ValueError) as err:

@@ -7,7 +7,7 @@ from unittest.mock import PropertyMock, patch
 
 from modbus_connection import ModbusError
 from modbus_connection.exceptions import IllegalDataAddressError
-from modbus_connection.mock import MockModbusConnection
+from modbus_connection.mock import MockModbusConnection, WriteEvent
 import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 from weider_modbus import WeiderWT16
@@ -667,4 +667,24 @@ async def test_enabled_reserve_entity_stays_enabled(hass, connection):
     entity_id = registry.async_get_entity_id("sensor", DOMAIN, f"{entry.entry_id}_reserve_temperature_1")
     assert registry.async_get(entity_id).disabled_by is None
     assert hass.states.get(entity_id) is not None
+    assert await hass.config_entries.async_unload(entry.entry_id)
+
+
+async def test_climate_unchanged_target_is_not_written(hass, connection):
+    """Setting the current target again does not write to flash memory."""
+    entry = make_entry(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    events: list[WriteEvent] = []
+    connection.for_unit(1).on_write(events.append)
+    entity_id = "climate.weider_wt16_hot_water_temperature"
+    assert hass.states.get(entity_id).attributes["temperature"] == 45.0
+    await hass.services.async_call(
+        "climate", "set_temperature", {"entity_id": entity_id, "temperature": 45.0}, blocking=True,
+    )
+    assert events == []
+    await hass.services.async_call(
+        "climate", "set_temperature", {"entity_id": entity_id, "temperature": 46.0}, blocking=True,
+    )
+    assert events == [WriteEvent("holding", 1, [460], 16)]
     assert await hass.config_entries.async_unload(entry.entry_id)
