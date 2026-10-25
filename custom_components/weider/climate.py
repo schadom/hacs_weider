@@ -106,7 +106,7 @@ class WeiderClimate(WeiderEntity, ClimateEntity):
 
     @property
     def target_temperature(self) -> float | None:
-        return getattr(self.coordinator.device.settings, self.description.target_key)
+        return self.coordinator.target(self.description.target_key)
 
     async def async_set_temperature(self, **kwargs: Any) -> None:
         temperature = kwargs.get(ATTR_TEMPERATURE)
@@ -118,10 +118,13 @@ class WeiderClimate(WeiderEntity, ClimateEntity):
             # limited number of writes, so an unchanged target is not written.
             return
         try:
-            await self.description.set_fn(self.coordinator.device, temperature)
+            await self.coordinator.async_write_target(
+                self.description.target_key,
+                lambda device: self.description.set_fn(device, temperature),
+                temperature,
+            )
         except (ModbusError, OSError, TimeoutError, ValueError) as err:
             raise HomeAssistantError(f"Unable to set {self.description.name}: {err}") from err
-        await self.coordinator.async_request_refresh()
 
     @property
     def hvac_action(self) -> HVACAction | None:

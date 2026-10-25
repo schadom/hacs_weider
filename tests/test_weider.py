@@ -688,3 +688,71 @@ async def test_climate_unchanged_target_is_not_written(hass, connection):
     )
     assert events == [WriteEvent("holding", 1, [460], 16)]
     assert await hass.config_entries.async_unload(entry.entry_id)
+
+
+async def _set_hot_water_target(hass, temperature):
+    await hass.services.async_call(
+        "climate", "set_temperature",
+        {"entity_id": "climate.weider_wt16_hot_water_temperature", "temperature": temperature},
+        blocking=True,
+    )
+
+
+def _hot_water_targets(hass):
+    """Return the target shown by the climate entity and by the target sensor."""
+    return (
+        hass.states.get("climate.weider_wt16_hot_water_temperature").attributes["temperature"],
+        hass.states.get("sensor.weider_wt16_hot_water_target_temperature").state,
+    )
+
+
+async def test_new_target_shown_until_poll_confirms(hass, connection):
+    """A poll that still returns the old target does not undo the shown value."""
+    entry = make_entry(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    unit = connection.for_unit(1)
+    await _set_hot_water_target(hass, 47.5)
+    await hass.async_block_till_done()
+    assert _hot_water_targets(hass) == (47.5, "47.5")
+    # The heat pump has not refreshed its Modbus value yet.
+    unit.holding[1] = 450
+    await entry.runtime_data.async_refresh()
+    await hass.async_block_till_done()
+    assert _hot_water_targets(hass) == (47.5, "47.5")
+    # The next poll returns the new target; later changes show again.
+    unit.holding[1] = 475
+    await entry.runtime_data.async_refresh()
+    unit.holding[1] = 480
+    await entry.runtime_data.async_refresh()
+    await hass.async_block_till_done()
+    assert _hot_water_targets(hass) == (48.0, "48.0")
+    assert await hass.config_entries.async_unload(entry.entry_id)
+
+
+async def test_unconfirmed_target_reverts_after_timeout(hass, connection, caplog):
+    """If the heat pump never reports the written target, its value wins."""
+    entry = make_entry(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    unit = connection.for_unit(1)
+    with patch("custom_components.weider.coordinator.PENDING_TARGET_TIMEOUT", timedelta(0)):
+        await _set_hot_water_target(hass, 47.5)
+    unit.holding[1] = 450
+    await entry.runtime_data.async_refresh()
+    await hass.async_block_till_done()
+    assert _hot_water_targets(hass) == (45.0, "45.0")
+    assert "still reports hot_water_target_temperature" in caplog.text
+    assert await hass.config_entries.async_unload(entry.entry_id)
+
+
+async def test_failed_target_write_shows_old_target(hass, connection):
+    entry = make_entry(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    connection.for_unit(1).fail_requests(ModbusError("offline"))
+    with pytest.raises(HomeAssistantError):
+        await _set_hot_water_target(hass, 47.5)
+    await hass.async_block_till_done()
+    assert hass.states.get("climate.weider_wt16_hot_water_temperature").attributes["temperature"] == 45.0
+    assert await hass.config_entries.async_unload(entry.entry_id)
