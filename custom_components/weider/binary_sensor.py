@@ -12,9 +12,19 @@ from .coordinator import WeiderConfigEntry, WeiderCoordinator
 from .entity import WeiderEntity, is_supported
 
 
-def _input(key: str, device_class: BinarySensorDeviceClass | None = None) -> BinarySensorEntityDescription:
+def _input(
+    key: str,
+    device_class: BinarySensorDeviceClass | None = None,
+    *,
+    enabled_default: bool = True,
+) -> BinarySensorEntityDescription:
     """Describe a digital input; its key is the weider_modbus field name."""
-    return BinarySensorEntityDescription(key=key, translation_key=key, device_class=device_class)
+    return BinarySensorEntityDescription(
+        key=key,
+        translation_key=key,
+        device_class=device_class,
+        entity_registry_enabled_default=enabled_default,
+    )
 
 
 BINARY_SENSORS: tuple[BinarySensorEntityDescription, ...] = (
@@ -27,17 +37,19 @@ BINARY_SENSORS: tuple[BinarySensorEntityDescription, ...] = (
     _input("mixer_pump"),
     _input("hot_water_pump"),
     _input("four_way_valve"),
-    _input("reserve_1"),
-    _input("reserve_2"),
-    _input("reserve_3"),
-    _input("cooling_output"),
-    _input("reserve_5"),
+    # Reserve inputs, including the cooling output of the optional cooling
+    # add-on, are disabled by default. Users can enable them in Home Assistant.
+    _input("reserve_1", enabled_default=False),
+    _input("reserve_2", enabled_default=False),
+    _input("reserve_3", enabled_default=False),
+    _input("cooling_output", enabled_default=False),
+    _input("reserve_5", enabled_default=False),
     _input("hot_water_block"),
     _input("heating_block"),
     _input("utility_block"),
     _input("sg_ready_1"),
     _input("sg_ready_2"),
-    _input("reserve"),
+    _input("reserve", enabled_default=False),
 )
 
 

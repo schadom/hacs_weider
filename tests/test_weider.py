@@ -3,7 +3,7 @@
 from datetime import timedelta
 import json
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import PropertyMock, patch
 
 from modbus_connection import ModbusError
 from modbus_connection.exceptions import IllegalDataAddressError
@@ -27,6 +27,20 @@ from custom_components.weider.sensor import SENSORS
 pytestmark = pytest.mark.usefixtures("enable_custom_integrations")
 CONNECTION_DATA = {"host": "pump.local", "port": 502, "unit_id": 1}
 HOT_WATER = "sensor.weider_wt16_hot_water_temperature"
+# Entities that are disabled by default.
+RESERVE_SENSORS = {"reserve_temperature_1", "reserve_temperature_2", "reserve_temperature_3"}
+RESERVE_BINARY_SENSORS = {"reserve_1", "reserve_2", "reserve_3", "cooling_output", "reserve_5", "reserve"}
+
+
+@pytest.fixture
+def enable_all_entities():
+    """Create every entity enabled, including the disabled-by-default ones."""
+    with patch(
+        "homeassistant.helpers.entity.Entity.entity_registry_enabled_default",
+        new_callable=PropertyMock,
+        return_value=True,
+    ):
+        yield
 
 
 @pytest.fixture(autouse=True)
@@ -65,6 +79,7 @@ def make_entry(hass, **kwargs):
     return entry
 
 
+@pytest.mark.usefixtures("enable_all_entities")
 @pytest.mark.parametrize("probe_only", [False, True])
 async def test_setup_with_unsupported_input(hass, connection, probe_only):
     unit = connection.for_unit(1)
@@ -112,6 +127,7 @@ async def test_unsupported_room_target_creates_no_room_entities(hass, connection
     assert await hass.config_entries.async_unload(entry.entry_id)
 
 
+@pytest.mark.usefixtures("enable_all_entities")
 async def test_unsupported_measurement_creates_no_entity(hass, connection, caplog):
     import logging
 
@@ -282,6 +298,7 @@ async def test_reconfigure_legacy_entry(hass, connection):
     reload_entry.assert_called_once_with(entry.entry_id)
 
 
+@pytest.mark.usefixtures("enable_all_entities")
 @pytest.mark.parametrize("language", ["en", "de"])
 async def test_entity_translations(hass, connection, language):
     integration_path = Path(__file__).resolve().parents[1] / "custom_components" / DOMAIN
@@ -314,6 +331,7 @@ async def test_entity_translations(hass, connection, language):
     assert await hass.config_entries.async_unload(entry.entry_id)
 
 
+@pytest.mark.usefixtures("enable_all_entities")
 async def test_sensor_state_classes(hass, connection):
     entry = make_entry(hass)
     assert await hass.config_entries.async_setup(entry.entry_id)
@@ -361,6 +379,7 @@ def test_sg_ready_mode_states_translated(language):
     assert set(states) == set(SG_READY_OPTIONS)
     assert all(label.startswith(key[:3].upper()) for key, label in states.items())
 
+@pytest.mark.usefixtures("enable_all_entities")
 async def test_setup_poll_recovery_and_unload(hass, connection):
     entry = make_entry(hass)
     assert await hass.config_entries.async_setup(entry.entry_id)
@@ -614,4 +633,38 @@ async def test_room_temperature_entity_without_room_registers(hass, connection):
     assert hass.states.get("sensor.weider_wt16_room_temperature") is None
     climate = hass.states.get("climate.weider_wt16_room_temperature")
     assert climate.attributes.get("current_temperature") is None
+    assert await hass.config_entries.async_unload(entry.entry_id)
+
+
+async def test_reserve_entities_disabled_by_default(hass, connection):
+    """The reserve sensors and inputs are registered but disabled by default."""
+    entry = make_entry(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    registry = er.async_get(hass)
+    for platform, keys in (("sensor", RESERVE_SENSORS), ("binary_sensor", RESERVE_BINARY_SENSORS)):
+        for key in keys:
+            entity_id = registry.async_get_entity_id(platform, DOMAIN, f"{entry.entry_id}_{key}")
+            assert entity_id is not None, key
+            assert registry.async_get(entity_id).disabled_by is er.RegistryEntryDisabler.INTEGRATION
+            assert hass.states.get(entity_id) is None
+    assert len(hass.states.async_all("sensor")) == 28 - len(RESERVE_SENSORS)
+    assert len(hass.states.async_all("binary_sensor")) == 20 - len(RESERVE_BINARY_SENSORS)
+    assert hass.states.get("binary_sensor.weider_wt16_compressor") is not None
+    assert await hass.config_entries.async_unload(entry.entry_id)
+
+
+async def test_enabled_reserve_entity_stays_enabled(hass, connection):
+    """An entity enabled by an existing installation keeps working."""
+    entry = make_entry(hass)
+    registry = er.async_get(hass)
+    registry.async_get_or_create(
+        "sensor", DOMAIN, f"{entry.entry_id}_reserve_temperature_1",
+        config_entry=entry, suggested_object_id="weider_wt16_reserve_sensor_temperature_1",
+    )
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    entity_id = registry.async_get_entity_id("sensor", DOMAIN, f"{entry.entry_id}_reserve_temperature_1")
+    assert registry.async_get(entity_id).disabled_by is None
+    assert hass.states.get(entity_id) is not None
     assert await hass.config_entries.async_unload(entry.entry_id)
