@@ -12,12 +12,13 @@ Component to integrate with [Weider](https://www.weider.co.at) heat pumps over M
 
 ## Supported controllers
 
-| Controller | Modbus | Status |
-| --- | --- | --- |
-| WeiTronic WT16 | Yes | Supported |
-| WeiTronic WT08 | No | Not supported |
+| Controller | RS485 | Ethernet | Modbus | Modbus TCP | Status |
+| --- | --- | --- | --- | --- | --- |
+| WeiTronic WT16 | Yes | Yes | Master/Slave | Yes | Supported |
+| WeiTronic WT08 | Yes | No | Master | No | Not supported |
 
-Only the WT16 controller has a Modbus interface.
+The integration connects over Modbus TCP and reads the controller as a Modbus
+slave. Only the WT16 supports both.
 
 Device communication is handled by the [weider-modbus](https://pypi.org/project/weider-modbus/)
 library ([source](https://github.com/schadom/weider-modbus)), which Home Assistant
