@@ -41,11 +41,14 @@ def _provides(component: str, *fields: str) -> Callable[[WeiderWT16], bool]:
     )
 
 
-def _temperature(key: str, component: str = "measurements") -> WeiderSensorEntityDescription:
+def _temperature(
+    key: str, component: str = "measurements", *, enabled_default: bool = True
+) -> WeiderSensorEntityDescription:
     """Describe a temperature field, hiding the device's placeholder values."""
     return WeiderSensorEntityDescription(
         key=key,
         translation_key=key,
+        entity_registry_enabled_default=enabled_default,
         device_class=SensorDeviceClass.TEMPERATURE,
         native_unit_of_measurement=UnitOfTemperature.CELSIUS,
         state_class=SensorStateClass.MEASUREMENT,
@@ -86,9 +89,11 @@ SENSORS: tuple[WeiderSensorEntityDescription, ...] = (
     _temperature("outdoor_temperature"),
     _temperature("buffer_temperature"),
     _temperature("mixer_temperature"),
-    _temperature("reserve_temperature_1"),
-    _temperature("reserve_temperature_2"),
-    _temperature("reserve_temperature_3"),
+    # Reserve sensors are only connected on some installations, so they are
+    # disabled by default. Users can enable them in Home Assistant.
+    _temperature("reserve_temperature_1", enabled_default=False),
+    _temperature("reserve_temperature_2", enabled_default=False),
+    _temperature("reserve_temperature_3", enabled_default=False),
     _temperature("defrost_temperature"),
     _temperature("return_temperature"),
     _temperature("source_inlet_temperature"),

@@ -148,6 +148,12 @@ The integration skips these optional registers if the device rejects them: room
 temperature and room target, mixer position, runtimes and the active error text.
 The integration creates no entities for registers and digital inputs that the
 device does not provide. It logs each skipped field at info level when it starts.
+
+The reserve entities are disabled by default, because they are only connected on
+some installations: the three reserve sensor temperatures and the inputs Reserve
+1–3, Reserve 4 cooling output (optional cooling add-on), Reserve 5 and Reserve.
+Enable them on the device page in Home Assistant if your installation uses them.
+Installations from before 1.5.0 keep these entities as they are.
 A rejected core register still makes the polling cycle fail; report the failing
 address and firmware version.
 
