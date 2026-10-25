@@ -1,4 +1,4 @@
-"""The Weider WT16 integration."""
+"""The Weider integration."""
 
 from modbus_connection import ModbusTcpParams
 
@@ -15,7 +15,7 @@ PLATFORMS = [Platform.BINARY_SENSOR, Platform.CLIMATE, Platform.SENSOR]
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: WeiderConfigEntry) -> bool:
-    """Set up a WT16 using a shared Modbus Connection unit."""
+    """Set up a Weider heat pump using a shared Modbus Connection unit."""
     if CONF_HOST not in entry.data or CONF_PORT not in entry.data:
         raise ConfigEntryError(
             "The legacy Modbus connection reference is no longer supported. "

@@ -1,4 +1,4 @@
-"""Temperature controls for Weider WT16."""
+"""Temperature controls for Weider heat pumps."""
 
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass

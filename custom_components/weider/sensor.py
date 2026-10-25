@@ -1,4 +1,4 @@
-"""Sensors for Weider WT16."""
+"""Sensors for Weider heat pumps."""
 
 from collections.abc import Callable
 from dataclasses import dataclass

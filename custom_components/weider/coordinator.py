@@ -1,4 +1,4 @@
-"""Coordinator for Weider WT16."""
+"""Coordinator for Weider heat pumps."""
 
 import asyncio
 import logging
@@ -39,7 +39,7 @@ class WeiderCoordinator(DataUpdateCoordinator[WeiderWT16]):
         try:
             await self.device.async_update()
         except COMMUNICATION_ERRORS as err:
-            _LOGGER.debug("Weider WT16 poll failed (%s), retrying once", err)
+            _LOGGER.debug("Weider poll failed (%s), retrying once", err)
             await asyncio.sleep(RETRY_DELAY.total_seconds())
             await self.device.async_update()
 
@@ -49,13 +49,13 @@ class WeiderCoordinator(DataUpdateCoordinator[WeiderWT16]):
         except COMMUNICATION_ERRORS as err:
             self.failed_polls += 1
             if self.data is None or self.failed_polls >= FAILED_POLL_TOLERANCE:
-                raise UpdateFailed(f"Error communicating with Weider WT16: {err}") from err
+                raise UpdateFailed(f"Error communicating with the Weider heat pump: {err}") from err
             _LOGGER.info(
-                "Weider WT16 poll failed (%s of %s tolerated), keeping last values: %s",
+                "Weider poll failed (%s of %s tolerated), keeping last values: %s",
                 self.failed_polls, FAILED_POLL_TOLERANCE - 1, err,
             )
             return self.data
         if self.failed_polls:
-            _LOGGER.debug("Weider WT16 poll recovered after %s failed poll(s)", self.failed_polls)
+            _LOGGER.debug("Weider poll recovered after %s failed poll(s)", self.failed_polls)
         self.failed_polls = 0
         return self.device

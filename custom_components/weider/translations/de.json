@@ -1,8 +1,8 @@
 {
   "config": {
     "step": {
-      "user": {"title": "Weider WT16 verbinden", "description": "Gib die Modbus-TCP-Verbindungsdaten der Wärmepumpe ein.", "data": {"host": "Hostname oder IP-Adresse", "port": "Port", "unit_id": "Unit-ID"}},
-      "reconfigure": {"title": "Weider WT16 neu konfigurieren", "description": "Gib die Modbus-TCP-Verbindungsdaten der Wärmepumpe ein.", "data": {"host": "Hostname oder IP-Adresse", "port": "Port", "unit_id": "Unit-ID"}}
+      "user": {"title": "Weider-Wärmepumpe verbinden", "description": "Gib die Modbus-TCP-Verbindungsdaten der Wärmepumpe ein.", "data": {"host": "Hostname oder IP-Adresse", "port": "Port", "unit_id": "Unit-ID"}},
+      "reconfigure": {"title": "Weider-Wärmepumpe neu konfigurieren", "description": "Gib die Modbus-TCP-Verbindungsdaten der Wärmepumpe ein.", "data": {"host": "Hostname oder IP-Adresse", "port": "Port", "unit_id": "Unit-ID"}}
     },
     "error": {"cannot_connect": "Verbindung fehlgeschlagen"},
     "abort": {"already_configured": "Dieses Gerät ist bereits konfiguriert", "reconfigure_successful": "Verbindungsdaten aktualisiert"}

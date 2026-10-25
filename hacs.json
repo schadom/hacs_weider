@@ -1,5 +1,5 @@
 {
-  "name": "Weider WT16",
+  "name": "Weider",
   "hacs": "2.0.5",
   "homeassistant": "2026.10.0",
   "content_in_root": false,

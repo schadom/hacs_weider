@@ -2,12 +2,12 @@
   "config": {
     "step": {
       "user": {
-        "title": "Connect a Weider WT16",
+        "title": "Connect a Weider heat pump",
         "description": "Enter the heat pump's Modbus TCP connection details.",
         "data": {"host": "Host", "port": "Port", "unit_id": "Unit ID"}
       },
       "reconfigure": {
-        "title": "Reconfigure Weider WT16",
+        "title": "Reconfigure Weider heat pump",
         "description": "Enter the heat pump's Modbus TCP connection details.",
         "data": {"host": "Host", "port": "Port", "unit_id": "Unit ID"}
       }
