@@ -87,8 +87,8 @@ docker compose --profile simulator start simulator
 
 A failed poll is retried once immediately, because the shared connection reopens
 on the next request. Entities keep their last values until three consecutive polls
-have failed, so allow about 90 seconds (plus connection timeouts) for availability
-to change. The connection should recover without reloading the integration.
+have failed, so allow about three minutes (plus connection timeouts) for
+availability to change. The connection should recover without reloading the integration.
 
 To test a real device instead, start only Home Assistant:
 
@@ -156,6 +156,17 @@ the supported control mode, not compressor activity. Their action shows
 `heating` while the compressor and the circuit's pump both run: the hot water
 pump for hot water, the heating pump for the room. Otherwise it shows `idle`.
 On/off and heating/cooling mode changes are not implemented.
+
+The integration polls the heat pump every 60 seconds. The heat pump refreshes its
+Modbus values about once a minute, so polling more often only repeats the same
+values.
+
+> [!WARNING]
+> The controller stores the target temperatures in flash memory. Flash memory
+> tolerates only a limited number of write cycles (typically around 100,000), and
+> exceeding it can damage the controller. Change targets only when needed, and do
+> not let automations or scripts set them on a short schedule or in a fast control
+> loop.
 
 [hacs_weider]: https://github.com/schadom/hacs_weider
 [commits-shield]: https://img.shields.io/github/commit-activity/y/schadom/hacs_weider.svg?style=for-the-badge
