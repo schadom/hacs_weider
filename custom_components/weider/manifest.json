@@ -18,7 +18,7 @@
     "weider_modbus"
   ],
   "requirements": [
-    "weider-modbus==0.1.2"
+    "weider-modbus==0.1.3"
   ],
   "version": "0.1.0"
 }
