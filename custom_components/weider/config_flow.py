@@ -1,4 +1,4 @@
-"""Config flow for Weider WT16."""
+"""Config flow for Weider heat pumps."""
 
 from typing import Any
 
@@ -22,7 +22,7 @@ STEP_USER = vol.Schema({
 
 
 class WeiderConfigFlow(ConfigFlow, domain=DOMAIN):
-    """Configure a Weider WT16."""
+    """Configure a Weider heat pump."""
 
     VERSION = 1
 
@@ -37,8 +37,8 @@ class WeiderConfigFlow(ConfigFlow, domain=DOMAIN):
     def _title(self, user_input: dict[str, Any]) -> str:
         """Name the first heat pump plainly and tell further ones apart."""
         if not self._async_current_entries(include_ignore=False):
-            return "Weider WT16"
-        return f"Weider WT16 ({user_input[CONF_HOST]}, unit {user_input[CONF_UNIT_ID]})"
+            return "Weider"
+        return f"Weider ({user_input[CONF_HOST]}, unit {user_input[CONF_UNIT_ID]})"
 
     async def _async_configure(self, step_id: str, user_input: dict[str, Any] | None) -> ConfigFlowResult:
         errors: dict[str, str] = {}

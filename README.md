@@ -1,4 +1,4 @@
-# Weider WT16 integration
+# Weider integration
 
 [![GitHub Release][releases-shield]][releases]
 [![GitHub Activity][commits-shield]][commits]
@@ -8,7 +8,16 @@
 > [!IMPORTANT]
 > This integration is not affiliated with Weider Wärmepumpen GmbH and is provided as-is and without warranty.
 
-Component to integrate with [Weider](https://www.weider.co.at) WT16 heat pumps.
+Component to integrate with [Weider](https://www.weider.co.at) heat pumps over Modbus TCP.
+
+## Supported controllers
+
+| Controller | Modbus | Status |
+| --- | --- | --- |
+| WeiTronic WT16 | Yes | Supported |
+| WeiTronic WT08 | No | Not supported |
+
+Only the WT16 controller has a Modbus interface.
 
 Device communication is handled by the [weider-modbus](https://pypi.org/project/weider-modbus/)
 library ([source](https://github.com/schadom/weider-modbus)), which Home Assistant
@@ -23,8 +32,8 @@ installs automatically.
 [![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=schadom&repository=hacs_weider&category=integration)
 
 1. Add this repository as a custom repository of category **Integration**.
-2. Install **Weider WT16** and restart Home Assistant.
-3. In **Settings > Devices & services > Add integration**, add **Weider WT16**.
+2. Install **Weider** and restart Home Assistant.
+3. In **Settings > Devices & services > Add integration**, add **Weider**.
 4. Enter the heat pump or gateway's host/IP, TCP port (default **502**), and
 	Modbus unit ID (default **1**).
 
@@ -33,6 +42,11 @@ For a manual install, copy `custom_components/weider` into Home Assistant's
 
 Requires Home Assistant **2026.10.0 or newer**; tested with **2026.10.3**. On older
 versions, HACS offers 1.2.3 at most.
+
+Installations from before 1.4.0 keep their device name "Weider WT16" and their
+entity IDs (for example `sensor.weider_wt16_hot_water_temperature`). New
+installations are named "Weider" (for example `sensor.weider_hot_water_temperature`).
+Rename the device in Home Assistant if you prefer the other name.
 The integration uses Home Assistant's shared `modbus` connection API. No separate
 connection integration or Modbus YAML configuration is needed. Units acquired
 through this API with identical connection parameters share a connection.
@@ -56,7 +70,7 @@ docker compose --profile simulator up -d
 ```
 
 Open <http://localhost:8123>, complete Home Assistant onboarding, then add
-**Weider WT16** with host **simulator**, port **5020**, and unit ID **1**.
+**Weider** with host **simulator**, port **5020**, and unit ID **1**.
 The simulator is only accessible inside the Compose network. It supplies fixed
 measurements and accepts target-temperature writes in memory; it does not model
 heat-pump physics, firmware behavior, or temperature limits.

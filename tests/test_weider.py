@@ -43,7 +43,7 @@ def connection():
     unit = connection.for_unit(1)
     unit.input.update({12: 215, 13: 425, 44: 1234, 60164: [1, 2]})
     unit.holding.update({1: 450, 723: 220})
-    unit.discrete_inputs[679] = True
+    unit.discrete[679] = True
     with patch(
         "homeassistant.components.modbus.connection.ModbusConnection",
         return_value=connection,
@@ -55,6 +55,7 @@ def make_entry(hass, **kwargs):
     """Register a Weider config entry."""
     entry = MockConfigEntry(
         domain=DOMAIN,
+        # An installation from before 1.4.0 keeps its stored title and entity IDs.
         title=kwargs.pop("title", "Weider WT16"),
         data=kwargs.pop("data", CONNECTION_DATA),
         unique_id=kwargs.pop("unique_id", "pump.local_502_1"),
@@ -217,6 +218,31 @@ async def test_blank_host_does_not_probe(hass, connection):
     assert not connection.for_unit(1).read_events
 
 
+async def test_new_entry_title(hass, connection):
+    """A new installation is named "Weider"."""
+    with patch("custom_components.weider.async_setup_entry", return_value=True):
+        result = await hass.config_entries.flow.async_init(
+            DOMAIN, context={"source": "user"}, data=CONNECTION_DATA,
+        )
+        await hass.async_block_till_done()
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    assert result["title"] == "Weider"
+
+
+async def test_new_entry_device_and_entity_ids(hass, connection):
+    """The device model comes from the library; entity IDs follow the title."""
+    from homeassistant.helpers import device_registry as dr
+
+    entry = make_entry(hass, title="Weider")
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    (device,) = dr.async_entries_for_config_entry(dr.async_get(hass), entry.entry_id)
+    assert (device.name, device.manufacturer, device.model) == ("Weider", "Weider", "WT16")
+    assert hass.states.get("sensor.weider_hot_water_temperature").state == "42.5"
+    assert hass.states.get("sensor.weider_wt16_hot_water_temperature") is None
+    assert await hass.config_entries.async_unload(entry.entry_id)
+
+
 async def test_second_heat_pump_gets_distinct_name(hass, connection):
     from homeassistant.helpers import device_registry as dr
 
@@ -228,7 +254,7 @@ async def test_second_heat_pump_gets_distinct_name(hass, connection):
     )
     await hass.async_block_till_done()
     assert result["type"] is FlowResultType.CREATE_ENTRY
-    assert result["title"] == "Weider WT16 (pump.local, unit 2)"
+    assert result["title"] == "Weider (pump.local, unit 2)"
     second = result["result"]
     assert second.state is ConfigEntryState.LOADED
     registry = dr.async_get(hass)
@@ -237,7 +263,7 @@ async def test_second_heat_pump_gets_distinct_name(hass, connection):
         for entry in (first, second)
         for device in dr.async_entries_for_config_entry(registry, entry.entry_id)
     }
-    assert names == {"Weider WT16", "Weider WT16 (pump.local, unit 2)"}
+    assert names == {"Weider WT16", "Weider (pump.local, unit 2)"}
     assert await hass.config_entries.async_unload(first.entry_id)
     assert await hass.config_entries.async_unload(second.entry_id)
 
@@ -309,7 +335,7 @@ async def test_sensor_state_classes(hass, connection):
     (True, True, True, "bz1_utility_block"),
 ])
 async def test_sg_ready_mode(hass, connection, utility_block, sg_ready_1, sg_ready_2, expected):
-    connection.for_unit(1).discrete_inputs.update(
+    connection.for_unit(1).discrete.update(
         {705: utility_block, 706: sg_ready_1, 707: sg_ready_2}
     )
     entry = make_entry(hass)
@@ -480,7 +506,7 @@ async def test_climate_write_updates_target(hass, connection):
 async def test_climate_hvac_action(
     hass, connection, compressor, hot_water_pump, heating_pump, hot_water, room,
 ):
-    connection.for_unit(1).discrete_inputs.update(
+    connection.for_unit(1).discrete.update(
         {679: compressor, 685: hot_water_pump, 680: heating_pump}
     )
     entry = make_entry(hass)

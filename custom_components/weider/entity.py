@@ -1,4 +1,4 @@
-"""Base entity for Weider WT16."""
+"""Base entity for Weider heat pumps."""
 
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
@@ -17,7 +17,7 @@ def is_supported(coordinator: WeiderCoordinator, component: str, key: str) -> bo
 
 
 class WeiderEntity(CoordinatorEntity[WeiderCoordinator]):
-    """Common device identity for WT16 entities."""
+    """Common device identity for Weider entities."""
 
     _attr_has_entity_name = True
 
@@ -27,8 +27,10 @@ class WeiderEntity(CoordinatorEntity[WeiderCoordinator]):
         self._attr_unique_id = f"{entry.entry_id}_{key}"
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, entry.entry_id)},
-            manufacturer="Weider",
-            model="WT16",
+            # Taken from the device library, so each device class reports
+            # its own controller model.
+            manufacturer=coordinator.device.manufacturer,
+            model=coordinator.device.model,
             name=entry.title,
         )
 

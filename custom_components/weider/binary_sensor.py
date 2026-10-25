@@ -1,4 +1,4 @@
-"""Binary sensors for Weider WT16."""
+"""Binary sensors for Weider heat pumps."""
 
 from homeassistant.components.binary_sensor import (
     BinarySensorDeviceClass,
