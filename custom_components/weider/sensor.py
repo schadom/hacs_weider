@@ -16,6 +16,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 from homeassistant.helpers.typing import StateType
 
+from .const import TARGET_KEYS
 from .coordinator import WeiderConfigEntry, WeiderCoordinator
 from .entity import WeiderEntity
 
@@ -187,4 +188,7 @@ class WeiderSensor(WeiderEntity, SensorEntity):
 
     @property
     def native_value(self) -> StateType:
+        if self.entity_description.key in TARGET_KEYS:
+            # Show a newly written target right away, like the climate entity.
+            return plausible_temperature(self.coordinator.target(self.entity_description.key))
         return self.entity_description.value_fn(self.coordinator.device)
