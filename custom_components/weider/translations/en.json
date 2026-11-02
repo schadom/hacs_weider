@@ -1,8 +1,8 @@
 {
   "config": {
     "step": {
-      "user": {"title": "Connect a Weider heat pump", "description": "Enter the heat pump's Modbus TCP connection details.", "data": {"host": "Host", "port": "Port", "unit_id": "Unit ID"}},
-      "reconfigure": {"title": "Reconfigure Weider heat pump", "description": "Enter the heat pump's Modbus TCP connection details.", "data": {"host": "Host", "port": "Port", "unit_id": "Unit ID"}}
+      "user": {"title": "Connect a Weider heat pump", "description": "Enter the heat pump's Modbus TCP connection details.", "data": {"host": "Host", "port": "Port", "unit_id": "Unit ID"}, "data_description": {"host": "Hostname or IP address of the heat pump. Use a fixed IP address, for example a DHCP reservation.", "port": "Modbus TCP port of the heat pump, usually 502.", "unit_id": "Modbus unit ID of the heat pump, usually 1."}},
+      "reconfigure": {"title": "Reconfigure Weider heat pump", "description": "Enter the heat pump's Modbus TCP connection details.", "data": {"host": "Host", "port": "Port", "unit_id": "Unit ID"}, "data_description": {"host": "Hostname or IP address of the heat pump. Use a fixed IP address, for example a DHCP reservation.", "port": "Modbus TCP port of the heat pump, usually 502.", "unit_id": "Modbus unit ID of the heat pump, usually 1."}}
     },
     "error": {"cannot_connect": "Failed to connect"},
     "abort": {"already_configured": "This device is already configured", "reconfigure_successful": "Connection details updated"}

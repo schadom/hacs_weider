@@ -95,7 +95,7 @@ class WeiderCoordinator(DataUpdateCoordinator[WeiderWT16]):
             self.failed_polls += 1
             if self.data is None or self.failed_polls >= FAILED_POLL_TOLERANCE:
                 raise UpdateFailed(f"Error communicating with the Weider heat pump: {err}") from err
-            _LOGGER.info(
+            _LOGGER.debug(
                 "Weider poll failed (%s of %s tolerated), keeping last values: %s",
                 self.failed_polls, FAILED_POLL_TOLERANCE - 1, err,
             )

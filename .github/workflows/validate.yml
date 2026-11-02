@@ -13,7 +13,7 @@ jobs:
           cache: pip
       - run: python -m pip install -r requirements-dev.txt
       - run: python -m ruff check custom_components tests dev
-      - run: python -m pytest -q
+      - run: python -m pytest -q --cov=custom_components.weider --cov-report=term-missing --cov-fail-under=95
       - run: docker compose --profile simulator config --quiet
   hacs:
     runs-on: ubuntu-latest
