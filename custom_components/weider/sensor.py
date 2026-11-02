@@ -110,6 +110,7 @@ SENSORS: tuple[WeiderSensorEntityDescription, ...] = (
         translation_key="volume_flow",
         device_class=SensorDeviceClass.VOLUME_FLOW_RATE,
         native_unit_of_measurement=UnitOfVolumeFlowRate.CUBIC_METERS_PER_HOUR,
+        suggested_display_precision=2,
         state_class=SensorStateClass.MEASUREMENT,
         value_fn=lambda device: device.measurements.volume_flow,
         supported_fn=_provides("measurements", "volume_flow"),

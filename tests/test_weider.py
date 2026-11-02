@@ -344,6 +344,18 @@ async def test_sensor_state_classes(hass, connection):
         assert state_class == expected, description.key
     assert await hass.config_entries.async_unload(entry.entry_id)
 
+async def test_volume_flow_display_precision(hass, connection):
+    entry = make_entry(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    registry = er.async_get(hass)
+    entity_id = registry.async_get_entity_id("sensor", DOMAIN, f"{entry.entry_id}_volume_flow")
+    assert hass.states.get(entity_id).state == "1.234"
+    options = registry.async_get(entity_id).options["sensor"]
+    assert options["suggested_display_precision"] == 2
+    assert await hass.config_entries.async_unload(entry.entry_id)
+
+
 @pytest.mark.parametrize(("utility_block", "sg_ready_1", "sg_ready_2", "expected"), [
     (False, False, False, "bz2_normal"),
     (False, False, True, "bz3_increased"),
