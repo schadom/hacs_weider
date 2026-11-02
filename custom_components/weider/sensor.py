@@ -20,6 +20,9 @@ from .const import TARGET_KEYS
 from .coordinator import WeiderConfigEntry, WeiderCoordinator
 from .entity import WeiderEntity
 
+# Entities only read the coordinator's data; the coordinator does all polling.
+PARALLEL_UPDATES = 0
+
 NO_ERROR = "none"
 
 # SG Ready operating states (Betriebszustände), as returned by weider_modbus.

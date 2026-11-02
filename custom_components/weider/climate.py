@@ -39,6 +39,10 @@ class ClimateDescription:
     pump_key: str
 
 
+# Send one target write at a time over the shared Modbus connection.
+PARALLEL_UPDATES = 1
+
+
 DESCRIPTIONS = (
     ClimateDescription(
         key="hot_water_temperature",

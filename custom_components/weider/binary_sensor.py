@@ -12,6 +12,10 @@ from .coordinator import WeiderConfigEntry, WeiderCoordinator
 from .entity import WeiderEntity, is_supported
 
 
+# Entities only read the coordinator's data; the coordinator does all polling.
+PARALLEL_UPDATES = 0
+
+
 def _input(
     key: str,
     device_class: BinarySensorDeviceClass | None = None,

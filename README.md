@@ -60,6 +60,14 @@ host, port, and unit ID. The old connection reference does not contain enough
 information to convert automatically. Reconfiguration preserves the entry and
 entity IDs; do not delete the entry just to change its connection details.
 
+## Removal
+
+1. In **Settings > Devices & services**, open **Weider**, open the entry's menu
+   and choose **Delete**. This removes the device and all its entities. Settings
+   stored on the heat pump are not changed.
+2. To remove the integration completely, uninstall **Weider** in HACS (or delete
+   `custom_components/weider`) and restart Home Assistant.
+
 ## Local Docker testing
 
 Install and start Docker Desktop on macOS, or Docker Engine with Compose on Linux.
