@@ -174,6 +174,56 @@ values.
 > not let automations or scripts set them on a short schedule or in a fast control
 > loop.
 
+## Known limitations
+
+- **Connection resets about once per hour.** The controller's Ethernet board keeps
+  a connection to the manufacturer's cloud service. Whenever that connection ends,
+  which happens roughly every 64 minutes, the board restarts its network and drops
+  the Modbus TCP connection as well
+  ([#24](https://github.com/schadom/hacs_weider/issues/24)). The integration
+  reconnects on its own and keeps the last values, so entities stay available.
+  Home Assistant still logs each reset as an error:
+
+  ```text
+  ERROR (MainThread) [tmodbus.transport.async_tcp] Async TCP connection lost due to error: [Errno 104] Connection reset by peer
+  ```
+
+  To hide this message, add to `configuration.yaml`:
+
+  ```yaml
+  logger:
+    logs:
+      tmodbus.transport.async_tcp: critical
+  ```
+
+- **Modbus TCP only.** The controller's RS485 port is not supported yet
+  ([#25](https://github.com/schadom/hacs_weider/issues/25)).
+- **No heating on/off or mode changes.** Only the hot water and room target
+  temperatures can be changed.
+
+## Troubleshooting
+
+- **Entities become unavailable.** Check that the heat pump answers on its IP
+  address and port 502. The Ethernet board requests a new DHCP lease after every
+  network restart, so give it a fixed IP address (a DHCP reservation in your
+  router). To change the address in the integration, open its entry menu and
+  choose **Reconfigure**; this keeps all entities.
+- **Values are missing.** Some firmware versions do not provide every register.
+  The integration skips them and logs each skipped field at info level when it
+  starts. If the device rejects a register the integration needs, polling fails
+  and the entities become unavailable; please report the register address and
+  firmware version.
+- **Room temperature shows 0 or unknown.** See the room temperature notes under
+  [Hardware verification](#hardware-verification).
+- **Enable debug logging** to see failed polls and how the integration recovers:
+
+  ```yaml
+  logger:
+    logs:
+      custom_components.weider: debug
+      weider_modbus: debug
+  ```
+
 [hacs_weider]: https://github.com/schadom/hacs_weider
 [commits-shield]: https://img.shields.io/github/commit-activity/y/schadom/hacs_weider.svg?style=for-the-badge
 [commits]: https://github.com/schadom/hacs_weider/commits/master
