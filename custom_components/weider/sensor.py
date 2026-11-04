@@ -3,7 +3,7 @@
 from collections.abc import Callable
 from dataclasses import dataclass
 
-from weider_modbus import WeiderWT16, clean_error_text, plausible_temperature
+from weider_modbus import clean_error_text, plausible_temperature
 
 from homeassistant.components.sensor import (
     SensorDeviceClass,
@@ -11,11 +11,18 @@ from homeassistant.components.sensor import (
     SensorEntityDescription,
     SensorStateClass,
 )
-from homeassistant.const import UnitOfTemperature, UnitOfTime, UnitOfVolumeFlowRate
+from homeassistant.const import (
+    EntityCategory,
+    UnitOfEnergy,
+    UnitOfTemperature,
+    UnitOfTime,
+    UnitOfVolumeFlowRate,
+)
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 from homeassistant.helpers.typing import StateType
 
+from .connection import WeiderDevice
 from .const import TARGET_KEYS
 from .coordinator import WeiderConfigEntry, WeiderCoordinator
 from .entity import WeiderEntity
@@ -27,18 +34,22 @@ NO_ERROR = "none"
 
 # SG Ready operating states (Betriebszustände), as returned by weider_modbus.
 SG_READY_OPTIONS = ["bz1_utility_block", "bz2_normal", "bz3_increased", "bz4_start"]
+# Summer or winter operation, on the RS485 map only.
+SEASON_OPTIONS = ["summer", "winter"]
+# Error number the RS485 map reports when there is no active error.
+NO_ERROR_CODE = -1
 
 
 @dataclass(frozen=True, kw_only=True)
 class WeiderSensorEntityDescription(SensorEntityDescription):
     """Describes a WT16 sensor."""
 
-    value_fn: Callable[[WeiderWT16], StateType]
+    value_fn: Callable[[WeiderDevice], StateType]
     # Whether this device provides what the sensor needs.
-    supported_fn: Callable[[WeiderWT16], bool]
+    supported_fn: Callable[[WeiderDevice], bool]
 
 
-def _provides(component: str, *fields: str) -> Callable[[WeiderWT16], bool]:
+def _provides(component: str, *fields: str) -> Callable[[WeiderDevice], bool]:
     """Return a check that the device provides any of the given fields."""
     return lambda device: any(
         field in getattr(device, component).resolved_fields for field in fields
@@ -61,7 +72,7 @@ def _temperature(
     )
 
 
-def _active_error(device: WeiderWT16) -> str | None:
+def _active_error(device: WeiderDevice) -> str | None:
     """Return the active error text, or NO_ERROR if the device reports none."""
     value = device.measurements.active_error
     if value is None:
@@ -69,7 +80,25 @@ def _active_error(device: WeiderWT16) -> str | None:
     return clean_error_text(value) or NO_ERROR
 
 
-def _sg_ready_mode(device: WeiderWT16) -> str | None:
+def _active_error_code(device: WeiderDevice) -> str | None:
+    """Return the active error number, or NO_ERROR if the device reports none."""
+    code = device.measurements.active_error_code
+    if code is None:
+        return None
+    return NO_ERROR if code == NO_ERROR_CODE else str(code)
+
+
+def _season(device: WeiderDevice) -> str | None:
+    winter = device.measurements.winter_mode
+    return None if winter is None else SEASON_OPTIONS[winter]
+
+
+def _value(component: str, key: str) -> Callable[[WeiderDevice], StateType]:
+    """Return a value function for a field read as it is."""
+    return lambda device: getattr(getattr(device, component), key)
+
+
+def _sg_ready_mode(device: WeiderDevice) -> str | None:
     mode = device.sg_ready_mode
     return None if mode is None else mode.value
 
@@ -161,6 +190,78 @@ SENSORS: tuple[WeiderSensorEntityDescription, ...] = (
             field in device.digital_inputs.resolved_fields
             for field in ("sg_ready_1", "sg_ready_2")
         ),
+    ),
+    # Values on the RS485 (Modbus RTU) map only.
+    _temperature("hot_water_hysteresis", "settings"),
+    _temperature("heating_limit_temperature", "settings"),
+    _temperature("average_outdoor_temperature"),
+    _temperature("circuit_1_flow_target_temperature"),
+    _temperature("circuit_1_flow_temperature"),
+    WeiderSensorEntityDescription(
+        key="operating_season",
+        translation_key="operating_season",
+        device_class=SensorDeviceClass.ENUM,
+        options=SEASON_OPTIONS,
+        value_fn=_season,
+        supported_fn=_provides("measurements", "winter_mode"),
+    ),
+    WeiderSensorEntityDescription(
+        key="mixer_2_position",
+        translation_key="mixer_2_position",
+        state_class=SensorStateClass.MEASUREMENT,
+        value_fn=_value("measurements", "mixer_2_position"),
+        supported_fn=_provides("measurements", "mixer_2_position"),
+    ),
+    WeiderSensorEntityDescription(
+        key="operating_hours",
+        translation_key="operating_hours",
+        device_class=SensorDeviceClass.DURATION,
+        native_unit_of_measurement=UnitOfTime.HOURS,
+        state_class=SensorStateClass.TOTAL_INCREASING,
+        value_fn=_value("measurements", "operating_hours"),
+        supported_fn=_provides("measurements", "operating_hours"),
+    ),
+    WeiderSensorEntityDescription(
+        key="heating_hours",
+        translation_key="heating_hours",
+        device_class=SensorDeviceClass.DURATION,
+        native_unit_of_measurement=UnitOfTime.HOURS,
+        state_class=SensorStateClass.TOTAL_INCREASING,
+        value_fn=_value("measurements", "heating_hours"),
+        supported_fn=_provides("measurements", "heating_hours"),
+    ),
+    WeiderSensorEntityDescription(
+        key="last_heating_runtime",
+        translation_key="last_heating_runtime",
+        device_class=SensorDeviceClass.DURATION,
+        native_unit_of_measurement=UnitOfTime.MINUTES,
+        state_class=SensorStateClass.MEASUREMENT,
+        value_fn=_value("measurements", "last_heating_runtime"),
+        supported_fn=_provides("measurements", "last_heating_runtime"),
+    ),
+    WeiderSensorEntityDescription(
+        key="heat_energy",
+        translation_key="heat_energy",
+        device_class=SensorDeviceClass.ENERGY,
+        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+        # The controller reports whole kWh.
+        suggested_display_precision=0,
+        state_class=SensorStateClass.TOTAL_INCREASING,
+        value_fn=_value("measurements", "heat_energy"),
+        supported_fn=_provides("measurements", "heat_energy"),
+    ),
+    WeiderSensorEntityDescription(
+        key="active_error_code",
+        translation_key="active_error_code",
+        value_fn=_active_error_code,
+        supported_fn=_provides("measurements", "active_error_code"),
+    ),
+    WeiderSensorEntityDescription(
+        key="sg_ready_manual_mode",
+        translation_key="sg_ready_manual_mode",
+        entity_category=EntityCategory.DIAGNOSTIC,
+        value_fn=_value("measurements", "sg_ready_manual_mode"),
+        supported_fn=_provides("measurements", "sg_ready_manual_mode"),
     ),
 )
 

@@ -8,17 +8,17 @@
 > [!IMPORTANT]
 > This integration is not affiliated with Weider Wärmepumpen GmbH and is provided as-is and without warranty.
 
-Component to integrate with [Weider](https://www.weider.co.at) heat pumps over Modbus TCP.
+Component to integrate with [Weider](https://www.weider.co.at) heat pumps over Modbus TCP or Modbus RTU.
 
 ## Supported controllers
 
-| Controller | RS485 | Ethernet | Modbus | Modbus TCP | Status |
-| --- | --- | --- | --- | --- | --- |
-| WeiTronic WT16 | Yes | Yes | Master/Slave | Yes | Supported |
-| WeiTronic WT08 | Yes | No | Master | No | Not supported |
+| Controller | RS232 | RS485 | Ethernet | Modbus RTU | Modbus TCP | Status |
+| --- | --- | --- | --- | --- | --- | --- |
+| WeiTronic WT16 | ✅ Yes | ✅ Yes | ✅ Yes | ✅ Yes | ✅ Yes | Supported |
+| WeiTronic WT08 | ✅ Yes | ✅ Yes | ❌ No | ✅ Yes | ❌ No | Not supported |
 
-The integration connects over Modbus TCP and reads the controller as a Modbus
-slave. Only the WT16 supports both.
+The integration reads the controller as a Modbus slave, over Modbus TCP or Modbus
+RTU. Only the WT16 supports the slave role.
 
 Device communication is handled by the [weider-modbus](https://pypi.org/project/weider-modbus/)
 library ([source](https://github.com/schadom/weider-modbus)), which Home Assistant
@@ -35,8 +35,14 @@ installs automatically.
 1. Add this repository as a custom repository of category **Integration**.
 2. Install **Weider** and restart Home Assistant.
 3. In **Settings > Devices & services > Add integration**, add **Weider**.
-4. Enter the heat pump or gateway's host/IP, TCP port (default **502**), and
-	Modbus unit ID (default **1**).
+4. Choose how Home Assistant connects to the heat pump:
+   - **Network (Modbus TCP):** the heat pump's Ethernet port. Enter its host or IP
+     address, TCP port (default **502**) and Modbus unit ID (default **1**).
+   - **Serial port (Modbus RTU):** the RS485 port X9 through a USB-RS485 adapter.
+     See [Connecting over RS485](#connecting-over-rs485-modbus-rtu).
+   - **RS485 converter on the network (Modbus RTU over TCP):** the RS485 port X9
+     through an RS485-to-Ethernet converter in transparent mode. Enter the
+     converter's host or IP address, TCP port and the Modbus unit ID.
 
 For a manual install, copy `custom_components/weider` into Home Assistant's
 `custom_components` directory and restart Home Assistant.
@@ -51,6 +57,42 @@ Rename the device in Home Assistant if you prefer the other name.
 The integration uses Home Assistant's shared `modbus` connection API. No separate
 connection integration or Modbus YAML configuration is needed. Units acquired
 through this API with identical connection parameters share a connection.
+
+Installations from before 1.6.0 use Modbus TCP and keep working without changes.
+
+### Connecting over RS485 (Modbus RTU)
+
+The RS485 port X9 ("Modbus 1") connects directly to the controller. It is not
+affected by the Ethernet board's hourly network resets (see
+[Known limitations](#known-limitations)), and Weider recommends it for
+connecting other systems.
+
+1. **Enable Modbus 1 on the controller** as **Slave** in **RTU** mode, and note
+   its Modbus address, baud rate, parity and stop bits. These settings need the
+   service code; ask Weider to set them up.
+2. **Wire X9 to the adapter:** A to A, B to B, and GND to GND. If the heat pump
+   does not answer, swap A and B. X9 already has a terminating resistor.
+3. **Connect the adapter** to the Home Assistant host, or use an RS485-to-Ethernet
+   converter in transparent mode next to the heat pump.
+4. **Add the integration** with **Serial port (Modbus RTU)** or **RS485 converter
+   on the network**, and enter the same settings as on the controller. The
+   integration suggests 19200 baud, no parity and 2 stop bits.
+
+The RS485 port has its own register map. Most values exist on both connections
+and keep their entity, so switching with **Reconfigure** keeps their history.
+Some values exist on only one connection:
+
+- **Modbus TCP only:** refrigerant circuit temperatures (superheat, evaporation,
+  condensation, evaporator, suction gas, hot gas, defrost), flow target and mixer
+  temperature, volume flow, flow switches, 4-way valve, SG Ready inputs and mode,
+  last pump runtime and the active error text.
+- **Modbus RTU only:** hot water hysteresis, heating limit temperature, average
+  outdoor temperature, operating season, heating circuit 1 flow target and flow
+  temperature, mixer 2 position, operating hours, heating hours, last heating
+  runtime, heat energy, the active error number and the manual SG Ready mode.
+
+The heat energy sensor can be used in the Energy dashboard. Not connected
+temperature sensors show as unknown.
 
 ### Upgrading an old configuration
 
@@ -204,8 +246,9 @@ values.
       tmodbus.transport.async_tcp: critical
   ```
 
-- **Modbus TCP only.** The controller's RS485 port is not supported yet
-  ([#25](https://github.com/schadom/hacs_weider/issues/25)).
+- **Use Modbus RTU to avoid the resets.** The RS485 port is not affected by the
+  Ethernet board's network restarts. See
+  [Connecting over RS485](#connecting-over-rs485-modbus-rtu).
 - **No heating on/off or mode changes.** Only the hot water and room target
   temperatures can be changed.
 
@@ -214,8 +257,14 @@ values.
 - **Entities become unavailable.** Check that the heat pump answers on its IP
   address and port 502. The Ethernet board requests a new DHCP lease after every
   network restart, so give it a fixed IP address (a DHCP reservation in your
-  router). To change the address in the integration, open its entry menu and
+  router). The board can also create a new MAC address on each start, which
+  breaks a DHCP reservation. To keep the MAC address, enable expert mode in the
+  weiRemote app's settings, then choose **Settings > Functions > Fix MAC
+  address**. To change the address in the integration, open its entry menu and
   choose **Reconfigure**; this keeps all entities.
+- **No answer over RS485.** Check that Modbus 1 is enabled as slave in RTU mode,
+  that the baud rate, parity, stop bits and Modbus address match the
+  controller, and that GND is connected. Then swap A and B.
 - **Values are missing.** Some firmware versions do not provide every register.
   The integration skips them and logs each skipped field at info level when it
   starts. If the device rejects a register the integration needs, polling fails

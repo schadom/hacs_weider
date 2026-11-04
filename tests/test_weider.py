@@ -10,7 +10,7 @@ from modbus_connection.exceptions import IllegalDataAddressError
 from modbus_connection.mock import MockModbusConnection, WriteEvent
 import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
-from weider_modbus import WeiderWT16
+from weider_modbus import WeiderWT16TCP
 
 from homeassistant.components.modbus.connection import DATA_MODBUS_CONNECTIONS
 from homeassistant.config_entries import ConfigEntryState
@@ -19,14 +19,22 @@ from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import entity_registry as er
 
 from custom_components.weider.climate import DESCRIPTIONS
-from custom_components.weider.config_flow import STEP_USER
+from custom_components.weider.config_flow import STEP_TCP
 from custom_components.weider.const import DOMAIN, FAILED_POLL_TOLERANCE
 from custom_components.weider.binary_sensor import BINARY_SENSORS
 from custom_components.weider.sensor import SENSORS
 
 pytestmark = pytest.mark.usefixtures("enable_custom_integrations")
 CONNECTION_DATA = {"host": "pump.local", "port": 502, "unit_id": 1}
+TCP_ENTRY_DATA = {"connection_type": "tcp", **CONNECTION_DATA}
 HOT_WATER = "sensor.weider_wt16_hot_water_temperature"
+# Sensors for values that only the RS485 (Modbus RTU) map provides.
+RTU_ONLY_SENSORS = {
+    "hot_water_hysteresis", "heating_limit_temperature", "average_outdoor_temperature",
+    "circuit_1_flow_target_temperature", "circuit_1_flow_temperature", "operating_season",
+    "mixer_2_position", "operating_hours", "heating_hours", "last_heating_runtime",
+    "heat_energy", "active_error_code", "sg_ready_manual_mode",
+}
 # Entities that are disabled by default.
 RESERVE_SENSORS = {"reserve_temperature_1", "reserve_temperature_2", "reserve_temperature_3"}
 RESERVE_BINARY_SENSORS = {"reserve_1", "reserve_2", "reserve_3", "cooling_output", "reserve_5", "reserve"}
@@ -165,7 +173,7 @@ async def test_unsupported_sg_ready_inputs_create_no_mode_sensor(hass, connectio
         assert await hass.config_entries.async_unload(entry.entry_id)
 
 def test_connection_schema():
-    assert STEP_USER({"host": "pump.local"}) == CONNECTION_DATA
+    assert STEP_TCP({"host": "pump.local"}) == CONNECTION_DATA
 
 
 def test_connection_schema_serializes_for_frontend():
@@ -173,7 +181,7 @@ def test_connection_schema_serializes_for_frontend():
 
     from homeassistant.helpers import config_validation as cv
 
-    fields = to_field_list(STEP_USER, custom_serializer=cv.custom_serializer)
+    fields = to_field_list(STEP_TCP, custom_serializer=cv.custom_serializer)
     assert [field["name"] for field in fields] == ["host", "port", "unit_id"]
 
 
@@ -186,7 +194,7 @@ def test_invalid_connection_schema(data):
     import voluptuous as vol
 
     with pytest.raises(vol.Invalid):
-        STEP_USER(data)
+        STEP_TCP(data)
 
 
 async def test_config_flow_releases_probe(hass, connection):
@@ -197,7 +205,7 @@ async def test_config_flow_releases_probe(hass, connection):
         )
         await hass.async_block_till_done()
     assert result["type"] is FlowResultType.CREATE_ENTRY
-    assert result["data"] == CONNECTION_DATA
+    assert result["data"] == TCP_ENTRY_DATA
     assert result["result"].unique_id == "pump.local_502_1"
     assert hass.data[DATA_MODBUS_CONNECTIONS] == {}
     assert not connection.connected
@@ -294,7 +302,7 @@ async def test_reconfigure_legacy_entry(hass, connection):
     assert result["type"] is FlowResultType.ABORT
     assert result["reason"] == "reconfigure_successful"
     assert entry.entry_id == original_id
-    assert entry.data == CONNECTION_DATA
+    assert entry.data == TCP_ENTRY_DATA
     reload_entry.assert_called_once_with(entry.entry_id)
 
 
@@ -322,7 +330,10 @@ async def test_entity_translations(hass, connection, language):
                 assert translations[platform][point.key] == source[platform][point.key]
             key = f"climate_{point.key}" if platform == "climate" else point.key
             entity_id = registry.async_get_entity_id(platform, DOMAIN, f"{entry.entry_id}_{key}")
-            assert entity_id is not None
+            if entity_id is None:
+                # Values of the RS485 map do not exist on a Modbus TCP entry.
+                assert point.key in RTU_ONLY_SENSORS
+                continue
             state = hass.states.get(entity_id)
             assert state is not None
             name = translations[platform][point.key]["name"]
@@ -338,6 +349,8 @@ async def test_sensor_state_classes(hass, connection):
     await hass.async_block_till_done()
     registry = er.async_get(hass)
     for description in SENSORS:
+        if description.key in RTU_ONLY_SENSORS:
+            continue
         entity_id = registry.async_get_entity_id("sensor", DOMAIN, f"{entry.entry_id}_{description.key}")
         state_class = hass.states.get(entity_id).attributes.get("state_class")
         expected = None if description.key in ("active_error", "sg_ready_mode") else "measurement"
@@ -438,7 +451,7 @@ async def test_simulator_tcp_read_and_write(unused_tcp_port):
     await server.serve_forever(background=True)
     connection = ModbusConnection(ModbusTcpParams(host="127.0.0.1", port=unused_tcp_port))
     try:
-        device = WeiderWT16(connection.for_unit(1))
+        device = WeiderWT16TCP(connection.for_unit(1))
         await device.async_update()
         assert device.measurements.hot_water_temperature == 42.5
         assert device.digital_inputs.compressor is True
@@ -768,3 +781,239 @@ async def test_failed_target_write_shows_old_target(hass, connection):
     await hass.async_block_till_done()
     assert hass.states.get("climate.weider_wt16_hot_water_temperature").attributes["temperature"] == 45.0
     assert await hass.config_entries.async_unload(entry.entry_id)
+
+
+SERIAL_PORT = "/dev/serial/by-id/usb-1a86_USB_Single_Serial_0123456789-if00"
+SERIAL_INPUT = {
+    "device": SERIAL_PORT, "baudrate": "19200", "parity": "none", "stopbits": "2", "unit_id": 1,
+}
+SERIAL_ENTRY_DATA = {
+    "connection_type": "serial", "device": SERIAL_PORT, "baudrate": 19200,
+    "parity": "N", "stopbits": 2, "unit_id": 1,
+}
+# Register values of the RS485 map for a mock heat pump.
+RTU_REGISTERS = {
+    1: 480, 2: 576, 15: 88, 26: 246, 451: 160, 452: 89, 454: 1, 723: 230, 724: 233,
+    1137: 2189, 1195: 17075, 4079: 65535, 680: 1,
+}
+
+
+async def test_user_flow_shows_connection_menu(hass, connection):
+    result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": "user"})
+    assert result["type"] is FlowResultType.MENU
+    assert result["menu_options"] == ["tcp", "serial", "rtu_over_tcp"]
+
+
+async def test_menu_tcp_flow(hass, connection):
+    result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": "user"})
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {"next_step_id": "tcp"}
+    )
+    assert result["type"] is FlowResultType.FORM
+    assert result["step_id"] == "tcp"
+    with patch("custom_components.weider.async_setup_entry", return_value=True):
+        result = await hass.config_entries.flow.async_configure(result["flow_id"], CONNECTION_DATA)
+        await hass.async_block_till_done()
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    assert result["data"] == TCP_ENTRY_DATA
+
+
+async def test_serial_flow(hass, connection):
+    connection.for_unit(1).holding.update(RTU_REGISTERS)
+    make_entry(hass)
+    result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": "user"})
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {"next_step_id": "serial"}
+    )
+    assert result["type"] is FlowResultType.FORM
+    assert result["step_id"] == "serial"
+    with patch("custom_components.weider.async_setup_entry", return_value=True):
+        result = await hass.config_entries.flow.async_configure(result["flow_id"], SERIAL_INPUT)
+        await hass.async_block_till_done()
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    assert result["data"] == SERIAL_ENTRY_DATA
+    assert result["result"].unique_id == f"serial_{SERIAL_PORT}_1"
+    assert result["title"] == "Weider (RS485, unit 1)"
+    assert hass.data[DATA_MODBUS_CONNECTIONS] == {}
+    # The probe reads the RS485 map: holding registers only.
+    assert {e.register_type for e in connection.for_unit(1).read_events} == {"holding"}
+
+
+async def test_serial_flow_without_port(hass, connection):
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN, context={"source": "user"}, data={**SERIAL_INPUT, "device": "  "},
+    )
+    assert result["type"] is FlowResultType.FORM
+    assert result["step_id"] == "serial"
+    assert result["errors"] == {"base": "cannot_connect"}
+    assert not connection.for_unit(1).read_events
+
+
+async def test_rtu_over_tcp_flow(hass, connection):
+    connection.for_unit(1).holding.update(RTU_REGISTERS)
+    data = {"connection_type": "rtu_over_tcp", "host": "Converter.local", "port": 4196, "unit_id": 1}
+    with patch("custom_components.weider.async_setup_entry", return_value=True):
+        result = await hass.config_entries.flow.async_init(
+            DOMAIN, context={"source": "user"}, data=data,
+        )
+        await hass.async_block_till_done()
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    assert result["data"] == {**data, "host": "converter.local"}
+    assert result["result"].unique_id == "rtu_converter.local_4196_1"
+
+
+def test_connection_params():
+    from modbus_connection import ModbusSerialParams, ModbusTcpParams
+
+    from custom_components.weider.connection import connection_params
+
+    assert connection_params(CONNECTION_DATA) == ModbusTcpParams(host="pump.local", port=502)
+    assert connection_params(SERIAL_ENTRY_DATA) == ModbusSerialParams(
+        device=SERIAL_PORT, baudrate=19200, parity="N", stopbits=2,
+    )
+    assert connection_params(
+        {"connection_type": "rtu_over_tcp", "host": "converter.local", "port": 4196, "unit_id": 1}
+    ) == ModbusSerialParams(device="socket://converter.local:4196")
+
+
+def test_serial_schema_serializes_for_frontend():
+    from probatio.codecs.fields import to_field_list
+
+    from homeassistant.helpers import config_validation as cv
+
+    from custom_components.weider.config_flow import STEP_SERIAL
+
+    fields = to_field_list(STEP_SERIAL, custom_serializer=cv.custom_serializer)
+    assert [field["name"] for field in fields] == [
+        "device", "baudrate", "parity", "stopbits", "unit_id",
+    ]
+    assert all("selector" in field for field in fields)
+
+
+def test_serial_schema_defaults():
+    from custom_components.weider.config_flow import STEP_SERIAL
+
+    assert STEP_SERIAL({"device": SERIAL_PORT}) == {
+        "device": SERIAL_PORT, "baudrate": 19200, "parity": "none", "stopbits": 2, "unit_id": 1,
+    }
+
+
+@pytest.mark.usefixtures("enable_all_entities")
+async def test_serial_entry_creates_rtu_entities(hass, connection):
+    unit = connection.for_unit(1)
+    unit.holding.update(RTU_REGISTERS)
+    entry = make_entry(hass, data=SERIAL_ENTRY_DATA, unique_id=f"serial_{SERIAL_PORT}_1")
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    assert entry.state is ConfigEntryState.LOADED
+    assert {e.register_type for e in unit.read_events} == {"holding"}
+    states = {
+        "sensor.weider_wt16_hot_water_temperature": "57.6",
+        "sensor.weider_wt16_outdoor_temperature": "8.8",
+        "sensor.weider_wt16_return_temperature": "24.6",
+        "sensor.weider_wt16_room_temperature": "23.3",
+        "sensor.weider_wt16_heating_limit_temperature": "16.0",
+        "sensor.weider_wt16_average_outdoor_temperature": "8.9",
+        "sensor.weider_wt16_operating_season": "winter",
+        "sensor.weider_wt16_operating_hours": "2189",
+        "sensor.weider_wt16_heat_energy": "17075",
+        "sensor.weider_wt16_active_error_number": "none",
+        "sensor.weider_wt16_hot_water_target_temperature": "48.0",
+        "binary_sensor.weider_wt16_heating_pump": "on",
+        "binary_sensor.weider_wt16_compressor": "off",
+        "climate.weider_wt16_hot_water_temperature": "heat",
+    }
+    for entity_id, expected in states.items():
+        assert hass.states.get(entity_id).state == expected, entity_id
+    # Not connected sensors report a placeholder on the RS485 map.
+    unit.holding[16] = 65535 - 998  # -99.9 °C
+    await entry.runtime_data.async_refresh()
+    await hass.async_block_till_done()
+    assert hass.states.get("sensor.weider_wt16_buffer_temperature").state == "unknown"
+    # Values of the Modbus TCP map only are not created.
+    for entity_id in (
+        "sensor.weider_wt16_volume_flow", "sensor.weider_wt16_superheat",
+        "sensor.weider_wt16_active_error", "sensor.weider_wt16_sg_ready_mode",
+        "binary_sensor.weider_wt16_sg_ready_1", "binary_sensor.weider_wt16_flow_switch_1",
+    ):
+        assert hass.states.get(entity_id) is None, entity_id
+    registry = er.async_get(hass)
+    energy = registry.async_get("sensor.weider_wt16_heat_energy")
+    assert hass.states.get(energy.entity_id).attributes["state_class"] == "total_increasing"
+    assert energy.options["sensor"]["suggested_display_precision"] == 0
+    assert await hass.config_entries.async_unload(entry.entry_id)
+
+
+async def test_rtu_active_error_number(hass, connection):
+    connection.for_unit(1).holding.update({**RTU_REGISTERS, 4079: 12})
+    entry = make_entry(hass, data=SERIAL_ENTRY_DATA, unique_id=f"serial_{SERIAL_PORT}_1")
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    assert hass.states.get("sensor.weider_wt16_active_error_number").state == "12"
+    assert await hass.config_entries.async_unload(entry.entry_id)
+
+
+async def test_rtu_target_write_uses_fc06(hass, connection):
+    unit = connection.for_unit(1)
+    unit.holding.update(RTU_REGISTERS)
+    entry = make_entry(hass, data=SERIAL_ENTRY_DATA, unique_id=f"serial_{SERIAL_PORT}_1")
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    events: list[WriteEvent] = []
+    unit.on_write(events.append)
+    await hass.services.async_call(
+        "climate", "set_temperature",
+        {"entity_id": "climate.weider_wt16_hot_water_temperature", "temperature": 47.5},
+        blocking=True,
+    )
+    assert events == [WriteEvent("holding", 1, [475], 6)]
+    assert await hass.config_entries.async_unload(entry.entry_id)
+
+
+async def test_reconfigure_switches_to_serial(hass, connection):
+    connection.for_unit(1).holding.update(RTU_REGISTERS)
+    entry = make_entry(hass)
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN, context={"source": "reconfigure", "entry_id": entry.entry_id},
+    )
+    assert result["type"] is FlowResultType.MENU
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {"next_step_id": "serial"}
+    )
+    assert result["type"] is FlowResultType.FORM
+    with patch.object(hass.config_entries, "async_schedule_reload") as reload_entry:
+        result = await hass.config_entries.flow.async_configure(result["flow_id"], SERIAL_INPUT)
+    assert result["type"] is FlowResultType.ABORT
+    assert result["reason"] == "reconfigure_successful"
+    assert entry.data == SERIAL_ENTRY_DATA
+    assert entry.unique_id == f"serial_{SERIAL_PORT}_1"
+    reload_entry.assert_called_once_with(entry.entry_id)
+
+
+async def test_reconfigure_form_shows_current_settings(hass, connection):
+    entry = make_entry(hass, data=SERIAL_ENTRY_DATA, unique_id=f"serial_{SERIAL_PORT}_1")
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN, context={"source": "reconfigure", "entry_id": entry.entry_id},
+    )
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {"next_step_id": "serial"}
+    )
+    suggested = {
+        str(key): key.description["suggested_value"]
+        for key in result["data_schema"].schema
+        if key.description
+    }
+    assert suggested == {
+        "device": SERIAL_PORT, "baudrate": "19200", "parity": "none", "stopbits": "2", "unit_id": 1,
+    }
+
+
+async def test_reconfigure_to_other_entry_aborts(hass, connection):
+    make_entry(hass, data=SERIAL_ENTRY_DATA, unique_id=f"serial_{SERIAL_PORT}_1")
+    entry = make_entry(hass)
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN, context={"source": "reconfigure", "entry_id": entry.entry_id},
+        data=SERIAL_INPUT,
+    )
+    assert result["type"] is FlowResultType.ABORT
+    assert result["reason"] == "already_configured"
