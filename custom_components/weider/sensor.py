@@ -244,6 +244,8 @@ SENSORS: tuple[WeiderSensorEntityDescription, ...] = (
         translation_key="heat_energy",
         device_class=SensorDeviceClass.ENERGY,
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+        # The controller reports whole kWh.
+        suggested_display_precision=0,
         state_class=SensorStateClass.TOTAL_INCREASING,
         value_fn=_value("measurements", "heat_energy"),
         supported_fn=_provides("measurements", "heat_energy"),

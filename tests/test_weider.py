@@ -833,7 +833,7 @@ async def test_serial_flow(hass, connection):
     assert result["type"] is FlowResultType.CREATE_ENTRY
     assert result["data"] == SERIAL_ENTRY_DATA
     assert result["result"].unique_id == f"serial_{SERIAL_PORT}_1"
-    assert result["title"] == f"Weider ({SERIAL_PORT}, unit 1)"
+    assert result["title"] == "Weider (RS485, unit 1)"
     assert hass.data[DATA_MODBUS_CONNECTIONS] == {}
     # The probe reads the RS485 map: holding registers only.
     assert {e.register_type for e in connection.for_unit(1).read_events} == {"holding"}
@@ -940,6 +940,7 @@ async def test_serial_entry_creates_rtu_entities(hass, connection):
     registry = er.async_get(hass)
     energy = registry.async_get("sensor.weider_wt16_heat_energy")
     assert hass.states.get(energy.entity_id).attributes["state_class"] == "total_increasing"
+    assert energy.options["sensor"]["suggested_display_precision"] == 0
     assert await hass.config_entries.async_unload(entry.entry_id)
 
 

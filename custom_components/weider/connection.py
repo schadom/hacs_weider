@@ -68,7 +68,11 @@ def unique_id(data: Mapping[str, Any]) -> str:
 
 
 def location(data: Mapping[str, Any]) -> str:
-    """Return a short description of where the heat pump is connected."""
+    """Return a short description of where the heat pump is connected.
+
+    A serial port path is long and unreadable as a device name, so a serial
+    connection is described by its interface instead.
+    """
     if connection_type(data) == CONNECTION_SERIAL:
-        return str(data[CONF_DEVICE])
+        return "RS485"
     return str(data[CONF_HOST])
