@@ -1017,3 +1017,17 @@ async def test_reconfigure_to_other_entry_aborts(hass, connection):
     )
     assert result["type"] is FlowResultType.ABORT
     assert result["reason"] == "already_configured"
+
+
+def test_climate_provides_native_and_legacy_temperature_members():
+    """Home Assistant 2026.11 reads the native names, 2026.10 the old ones."""
+    from custom_components.weider.climate import WeiderClimate
+
+    members = vars(WeiderClimate)
+    for native, legacy in (
+        ("_attr_native_temperature_unit", "_attr_temperature_unit"),
+        ("native_current_temperature", "current_temperature"),
+        ("native_target_temperature", "target_temperature"),
+    ):
+        assert native in members and legacy in members
+        assert members[native] == members[legacy]

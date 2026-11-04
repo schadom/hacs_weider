@@ -88,6 +88,10 @@ class WeiderClimate(WeiderEntity, ClimateEntity):
     _attr_hvac_modes = [HVACMode.HEAT]
     _attr_hvac_mode = HVACMode.HEAT
     _attr_supported_features = ClimateEntityFeature.TARGET_TEMPERATURE
+    # Home Assistant 2026.11 renamed the temperature members to native_*. A
+    # class that provides both names gets the native ones on 2026.11 and later,
+    # without a deprecation warning, and the old ones on 2026.10.
+    _attr_native_temperature_unit = UnitOfTemperature.CELSIUS
     _attr_temperature_unit = UnitOfTemperature.CELSIUS
     _attr_target_temperature_step = TARGET_STEP
 
@@ -106,18 +110,22 @@ class WeiderClimate(WeiderEntity, ClimateEntity):
         )
 
     @property
-    def current_temperature(self) -> float | None:
+    def native_current_temperature(self) -> float | None:
         return plausible_temperature(self.description.current_fn(self.coordinator.device))
 
     @property
-    def target_temperature(self) -> float | None:
+    def native_target_temperature(self) -> float | None:
         return self.coordinator.target(self.description.target_key)
+
+    # Names read by Home Assistant before 2026.11.
+    current_temperature = native_current_temperature
+    target_temperature = native_target_temperature
 
     async def async_set_temperature(self, **kwargs: Any) -> None:
         temperature = kwargs.get(ATTR_TEMPERATURE)
         if temperature is None:
             return
-        current = self.target_temperature
+        current = self.native_target_temperature
         if current is not None and round(temperature, 1) == round(current, 1):
             # The controller stores targets in flash memory, which tolerates a
             # limited number of writes, so an unchanged target is not written.
