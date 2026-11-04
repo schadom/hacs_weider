@@ -785,7 +785,7 @@ async def test_failed_target_write_shows_old_target(hass, connection):
 
 SERIAL_PORT = "/dev/serial/by-id/usb-1a86_USB_Single_Serial_0123456789-if00"
 SERIAL_INPUT = {
-    "device": SERIAL_PORT, "baudrate": "19200", "parity": "N", "stopbits": "2", "unit_id": 1,
+    "device": SERIAL_PORT, "baudrate": "19200", "parity": "none", "stopbits": "2", "unit_id": 1,
 }
 SERIAL_ENTRY_DATA = {
     "connection_type": "serial", "device": SERIAL_PORT, "baudrate": 19200,
@@ -894,7 +894,7 @@ def test_serial_schema_defaults():
     from custom_components.weider.config_flow import STEP_SERIAL
 
     assert STEP_SERIAL({"device": SERIAL_PORT}) == {
-        "device": SERIAL_PORT, "baudrate": 19200, "parity": "N", "stopbits": 2, "unit_id": 1,
+        "device": SERIAL_PORT, "baudrate": 19200, "parity": "none", "stopbits": 2, "unit_id": 1,
     }
 
 
@@ -1003,7 +1003,7 @@ async def test_reconfigure_form_shows_current_settings(hass, connection):
         if key.description
     }
     assert suggested == {
-        "device": SERIAL_PORT, "baudrate": "19200", "parity": "N", "stopbits": "2", "unit_id": 1,
+        "device": SERIAL_PORT, "baudrate": "19200", "parity": "none", "stopbits": "2", "unit_id": 1,
     }
 
 

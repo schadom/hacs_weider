@@ -22,7 +22,8 @@ CONF_BAUDRATE = "baudrate"
 CONF_PARITY = "parity"
 CONF_STOPBITS = "stopbits"
 BAUDRATES = [9600, 19200, 38400, 57600, 115200]
-PARITIES = ["N", "E", "O"]
+# Parity options shown in the dialog, and the parity they stand for.
+PARITIES = {"none": "N", "even": "E", "odd": "O"}
 STOPBITS = [1, 2]
 DEFAULT_BAUDRATE = 19200
 DEFAULT_PARITY = "N"

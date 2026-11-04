@@ -284,9 +284,9 @@
   "selector": {
     "parity": {
       "options": {
-        "N": "Keine",
-        "E": "Gerade",
-        "O": "Ungerade"
+        "none": "Keine",
+        "even": "Gerade",
+        "odd": "Ungerade"
       }
     }
   }

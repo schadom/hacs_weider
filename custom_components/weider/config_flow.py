@@ -44,6 +44,8 @@ from .const import (
 )
 
 _HOST = vol.All(TextSelector(), vol.Length(min=1))
+# Dialog option for each stored parity.
+_PARITY_OPTION = {parity: option for option, parity in PARITIES.items()}
 _PORT = vol.All(
     NumberSelector(NumberSelectorConfig(min=1, max=65535, step=1, mode=NumberSelectorMode.BOX)),
     vol.Coerce(int),
@@ -56,13 +58,12 @@ _UNIT_ID = vol.All(
 
 def _choice(options: list[Any], translation_key: str | None = None) -> vol.All:
     """Return a dropdown of the given options that yields the option's type."""
-    selector = SelectSelector(
-        SelectSelectorConfig(
-            options=[str(option) for option in options],
-            mode=SelectSelectorMode.DROPDOWN,
-            translation_key=translation_key,
-        )
+    config = SelectSelectorConfig(
+        options=[str(option) for option in options], mode=SelectSelectorMode.DROPDOWN
     )
+    if translation_key is not None:
+        config["translation_key"] = translation_key
+    selector = SelectSelector(config)
     # The selector only accepts the listed options.
     return vol.All(selector, vol.Coerce(type(options[0])))
 
@@ -77,7 +78,9 @@ STEP_TCP = vol.Schema({
 STEP_SERIAL = vol.Schema({
     vol.Required(CONF_DEVICE): vol.All(SerialPortSelector(), vol.Length(min=1)),
     vol.Required(CONF_BAUDRATE, default=str(DEFAULT_BAUDRATE)): _choice(BAUDRATES),
-    vol.Required(CONF_PARITY, default=DEFAULT_PARITY): _choice(PARITIES, "parity"),
+    vol.Required(CONF_PARITY, default=_PARITY_OPTION[DEFAULT_PARITY]): _choice(
+        list(PARITIES), "parity"
+    ),
     vol.Required(CONF_STOPBITS, default=str(DEFAULT_STOPBITS)): _choice(STOPBITS),
     vol.Required(CONF_UNIT_ID, default=DEFAULT_UNIT_ID): _UNIT_ID,
 })
@@ -100,7 +103,8 @@ def _entry_data(kind: str, user_input: Mapping[str, Any]) -> dict[str, Any]:
     if kind == CONNECTION_SERIAL:
         data[CONF_DEVICE] = user_input[CONF_DEVICE].strip()
         data[CONF_BAUDRATE] = int(user_input[CONF_BAUDRATE])
-        data[CONF_PARITY] = user_input[CONF_PARITY]
+        parity = user_input[CONF_PARITY]
+        data[CONF_PARITY] = PARITIES.get(parity, parity)
         data[CONF_STOPBITS] = int(user_input[CONF_STOPBITS])
     else:
         data[CONF_HOST] = user_input[CONF_HOST].strip().lower()
@@ -111,11 +115,13 @@ def _entry_data(kind: str, user_input: Mapping[str, Any]) -> dict[str, Any]:
 
 def _form_values(data: Mapping[str, Any]) -> dict[str, Any]:
     """Return entry data as form values; dropdowns hold their options as text."""
-    return {
-        key: str(value) if key in (CONF_BAUDRATE, CONF_STOPBITS) else value
-        for key, value in data.items()
-        if key != CONF_CONNECTION_TYPE
-    }
+    values = {key: value for key, value in data.items() if key != CONF_CONNECTION_TYPE}
+    for key in (CONF_BAUDRATE, CONF_STOPBITS):
+        if key in values:
+            values[key] = str(values[key])
+    if CONF_PARITY in values:
+        values[CONF_PARITY] = _PARITY_OPTION[values[CONF_PARITY]]
+    return values
 
 
 class WeiderConfigFlow(ConfigFlow, domain=DOMAIN):
