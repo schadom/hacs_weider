@@ -1,41 +1,162 @@
 {
   "config": {
     "step": {
-      "user": {"title": "Weider-Wärmepumpe verbinden", "description": "Gib die Modbus-TCP-Verbindungsdaten der Wärmepumpe ein.", "data": {"host": "Hostname oder IP-Adresse", "port": "Port", "unit_id": "Unit-ID"}, "data_description": {"host": "Hostname oder IP-Adresse der Wärmepumpe. Verwende eine feste IP-Adresse, zum Beispiel eine DHCP-Reservierung.", "port": "Modbus-TCP-Port der Wärmepumpe, meist 502.", "unit_id": "Modbus-Unit-ID der Wärmepumpe, meist 1."}},
-      "reconfigure": {"title": "Weider-Wärmepumpe neu konfigurieren", "description": "Gib die Modbus-TCP-Verbindungsdaten der Wärmepumpe ein.", "data": {"host": "Hostname oder IP-Adresse", "port": "Port", "unit_id": "Unit-ID"}, "data_description": {"host": "Hostname oder IP-Adresse der Wärmepumpe. Verwende eine feste IP-Adresse, zum Beispiel eine DHCP-Reservierung.", "port": "Modbus-TCP-Port der Wärmepumpe, meist 502.", "unit_id": "Modbus-Unit-ID der Wärmepumpe, meist 1."}}
+      "user": {
+        "title": "Weider-Wärmepumpe verbinden",
+        "description": "Wähle, wie Home Assistant die Wärmepumpe erreicht.",
+        "menu_options": {
+          "tcp": "Netzwerk (Modbus TCP)",
+          "serial": "Serielle Schnittstelle (Modbus RTU)",
+          "rtu_over_tcp": "RS485-Konverter im Netzwerk (Modbus RTU über TCP)"
+        }
+      },
+      "reconfigure": {
+        "title": "Weider-Wärmepumpe neu konfigurieren",
+        "description": "Wähle, wie Home Assistant die Wärmepumpe erreicht. Entitäten, die auch die neue Verbindung liefert, behalten ihren Verlauf.",
+        "menu_options": {
+          "tcp": "Netzwerk (Modbus TCP)",
+          "serial": "Serielle Schnittstelle (Modbus RTU)",
+          "rtu_over_tcp": "RS485-Konverter im Netzwerk (Modbus RTU über TCP)"
+        }
+      },
+      "tcp": {
+        "title": "Netzwerk (Modbus TCP)",
+        "description": "Verbindung über den Ethernet-Anschluss der Wärmepumpe.",
+        "data": {
+          "host": "Hostname oder IP-Adresse",
+          "port": "Port",
+          "unit_id": "Unit-ID"
+        },
+        "data_description": {
+          "host": "Hostname oder IP-Adresse der Wärmepumpe. Verwende eine feste IP-Adresse, zum Beispiel eine DHCP-Reservierung.",
+          "port": "Modbus-TCP-Port der Wärmepumpe, meist 502.",
+          "unit_id": "Modbus-Unit-ID der Wärmepumpe, meist 1."
+        }
+      },
+      "serial": {
+        "title": "Serielle Schnittstelle (Modbus RTU)",
+        "description": "Verbindung über die RS485-Schnittstelle X9 (Modbus 1) des Reglers mit einem USB-RS485-Adapter. Modbus 1 muss am Regler auf RTU und Slave eingestellt sein, und die folgenden Einstellungen müssen mit denen am Regler übereinstimmen.",
+        "data": {
+          "device": "Serielle Schnittstelle",
+          "baudrate": "Baudrate",
+          "parity": "Parität",
+          "stopbits": "Stoppbits",
+          "unit_id": "Unit-ID"
+        },
+        "data_description": {
+          "device": "Der USB-RS485-Adapter. Verwende möglichst einen Pfad unter /dev/serial/by-id, der nach einem Neustart gleich bleibt.",
+          "baudrate": "Baudrate von Modbus 1 am Regler.",
+          "parity": "Parität von Modbus 1 am Regler.",
+          "stopbits": "Stoppbits von Modbus 1 am Regler.",
+          "unit_id": "Modbus-Adresse von Modbus 1 am Regler, meist 1."
+        }
+      },
+      "rtu_over_tcp": {
+        "title": "RS485-Konverter (Modbus RTU über TCP)",
+        "description": "Verbindung über die RS485-Schnittstelle X9 (Modbus 1) des Reglers mit einem RS485-Ethernet-Konverter im transparenten Modus. Stelle am Konverter dieselben seriellen Einstellungen ein wie für Modbus 1 am Regler.",
+        "data": {
+          "host": "Hostname oder IP-Adresse",
+          "port": "Port",
+          "unit_id": "Unit-ID"
+        },
+        "data_description": {
+          "host": "Hostname oder IP-Adresse des Konverters.",
+          "port": "TCP-Port des transparenten Modus am Konverter.",
+          "unit_id": "Modbus-Adresse von Modbus 1 am Regler, meist 1."
+        }
+      }
     },
-    "error": {"cannot_connect": "Verbindung fehlgeschlagen"},
-    "abort": {"already_configured": "Dieses Gerät ist bereits konfiguriert", "reconfigure_successful": "Verbindungsdaten aktualisiert"}
+    "error": {
+      "cannot_connect": "Verbindung fehlgeschlagen"
+    },
+    "abort": {
+      "already_configured": "Dieses Gerät ist bereits konfiguriert",
+      "reconfigure_successful": "Verbindungsdaten aktualisiert"
+    }
   },
   "entity": {
     "sensor": {
-      "hot_water_target_temperature": {"name": "Warmwasser-Solltemperatur"},
-      "room_target_temperature": {"name": "Raum-Solltemperatur"},
-      "hot_water_temperature": {"name": "Warmwassertemperatur"},
-      "room_temperature": {"name": "Raumtemperatur"},
-      "flow_target_temperature": {"name": "Vorlauf-Solltemperatur"},
-      "flow_temperature": {"name": "Vorlauftemperatur"},
-      "outdoor_temperature": {"name": "Außentemperatur"},
-      "buffer_temperature": {"name": "Pufferspeichertemperatur"},
-      "mixer_temperature": {"name": "Mischertemperatur"},
-      "reserve_temperature_1": {"name": "Reservefühlertemperatur 1"},
-      "reserve_temperature_2": {"name": "Reservefühlertemperatur 2"},
-      "reserve_temperature_3": {"name": "Reservefühlertemperatur 3"},
-      "defrost_temperature": {"name": "Abtaufühlertemperatur"},
-      "return_temperature": {"name": "Rücklauftemperatur"},
-      "source_inlet_temperature": {"name": "Quelleneintrittstemperatur"},
-      "source_outlet_temperature": {"name": "Quellenaustrittstemperatur"},
-      "superheat": {"name": "Überhitzung"},
-      "evaporation_temperature": {"name": "Verdampfungstemperatur"},
-      "condensation_temperature": {"name": "Kondensationstemperatur"},
-      "evaporator_temperature": {"name": "Verdampfertemperatur"},
-      "suction_gas_temperature": {"name": "Sauggastemperatur"},
-      "hot_gas_temperature": {"name": "Heißgastemperatur"},
-      "volume_flow": {"name": "Volumenstrom"},
-      "active_error": {"name": "Aktuelle Störung"},
-      "last_pump_runtime": {"name": "Letzte Pumpenlaufzeit"},
-      "last_hot_water_runtime": {"name": "Letzte Warmwasserlaufzeit"},
-      "mixer_position": {"name": "Mischerstellung"},
+      "hot_water_target_temperature": {
+        "name": "Warmwasser-Solltemperatur"
+      },
+      "room_target_temperature": {
+        "name": "Raum-Solltemperatur"
+      },
+      "hot_water_temperature": {
+        "name": "Warmwassertemperatur"
+      },
+      "room_temperature": {
+        "name": "Raumtemperatur"
+      },
+      "flow_target_temperature": {
+        "name": "Vorlauf-Solltemperatur"
+      },
+      "flow_temperature": {
+        "name": "Vorlauftemperatur"
+      },
+      "outdoor_temperature": {
+        "name": "Außentemperatur"
+      },
+      "buffer_temperature": {
+        "name": "Pufferspeichertemperatur"
+      },
+      "mixer_temperature": {
+        "name": "Mischertemperatur"
+      },
+      "reserve_temperature_1": {
+        "name": "Reservefühlertemperatur 1"
+      },
+      "reserve_temperature_2": {
+        "name": "Reservefühlertemperatur 2"
+      },
+      "reserve_temperature_3": {
+        "name": "Reservefühlertemperatur 3"
+      },
+      "defrost_temperature": {
+        "name": "Abtaufühlertemperatur"
+      },
+      "return_temperature": {
+        "name": "Rücklauftemperatur"
+      },
+      "source_inlet_temperature": {
+        "name": "Quelleneintrittstemperatur"
+      },
+      "source_outlet_temperature": {
+        "name": "Quellenaustrittstemperatur"
+      },
+      "superheat": {
+        "name": "Überhitzung"
+      },
+      "evaporation_temperature": {
+        "name": "Verdampfungstemperatur"
+      },
+      "condensation_temperature": {
+        "name": "Kondensationstemperatur"
+      },
+      "evaporator_temperature": {
+        "name": "Verdampfertemperatur"
+      },
+      "suction_gas_temperature": {
+        "name": "Sauggastemperatur"
+      },
+      "hot_gas_temperature": {
+        "name": "Heißgastemperatur"
+      },
+      "volume_flow": {
+        "name": "Volumenstrom"
+      },
+      "active_error": {
+        "name": "Aktuelle Störung"
+      },
+      "last_pump_runtime": {
+        "name": "Letzte Pumpenlaufzeit"
+      },
+      "last_hot_water_runtime": {
+        "name": "Letzte Warmwasserlaufzeit"
+      },
+      "mixer_position": {
+        "name": "Mischerstellung"
+      },
       "sg_ready_mode": {
         "name": "SG-Ready-Modus",
         "state": {
@@ -44,33 +165,129 @@
           "bz3_increased": "BZ3 Verstärkter Betrieb",
           "bz4_start": "BZ4 Anlaufbefehl"
         }
+      },
+      "hot_water_hysteresis": {
+        "name": "Warmwasser-Schaltdifferenz"
+      },
+      "heating_limit_temperature": {
+        "name": "Heizgrenztemperatur"
+      },
+      "average_outdoor_temperature": {
+        "name": "Mittlere Außentemperatur"
+      },
+      "circuit_1_flow_target_temperature": {
+        "name": "Heizkreis 1 Vorlauf-Solltemperatur"
+      },
+      "circuit_1_flow_temperature": {
+        "name": "Heizkreis 1 Vorlauftemperatur"
+      },
+      "operating_season": {
+        "name": "Betriebsart Sommer/Winter",
+        "state": {
+          "summer": "Sommer",
+          "winter": "Winter"
+        }
+      },
+      "mixer_2_position": {
+        "name": "Mischerposition 2"
+      },
+      "operating_hours": {
+        "name": "Betriebsstunden"
+      },
+      "heating_hours": {
+        "name": "Betriebsstunden Heizen"
+      },
+      "last_heating_runtime": {
+        "name": "Letzte Laufzeit Heizen"
+      },
+      "heat_energy": {
+        "name": "Wärmemenge"
+      },
+      "active_error_code": {
+        "name": "Aktive Fehlernummer"
+      },
+      "sg_ready_manual_mode": {
+        "name": "SG-Ready-Betriebszustand (manuell)"
       }
     },
     "binary_sensor": {
-      "flow_switch_1": {"name": "Strömungswächter 1"},
-      "flow_switch_2": {"name": "Strömungswächter 2"},
-      "remote_fault": {"name": "Fernstörung"},
-      "compressor": {"name": "Verdichter"},
-      "heating_pump": {"name": "Heizungspumpe"},
-      "source_pump": {"name": "Quellenpumpe / Wasserpumpe / Ventilator"},
-      "mixer_pump": {"name": "Mischerpumpe"},
-      "hot_water_pump": {"name": "Warmwasserpumpe"},
-      "four_way_valve": {"name": "Vierwegeventil"},
-      "reserve_1": {"name": "Reserve 1"},
-      "reserve_2": {"name": "Reserve 2"},
-      "reserve_3": {"name": "Reserve 3"},
-      "cooling_output": {"name": "Reserve 4 Kühlausgang"},
-      "reserve_5": {"name": "Reserve 5"},
-      "hot_water_block": {"name": "Warmwassersperre"},
-      "heating_block": {"name": "Heizungssperre"},
-      "utility_block": {"name": "EVU-Sperre"},
-      "sg_ready_1": {"name": "SG Ready 1"},
-      "sg_ready_2": {"name": "SG Ready 2"},
-      "reserve": {"name": "Reserve"}
+      "flow_switch_1": {
+        "name": "Strömungswächter 1"
+      },
+      "flow_switch_2": {
+        "name": "Strömungswächter 2"
+      },
+      "remote_fault": {
+        "name": "Fernstörung"
+      },
+      "compressor": {
+        "name": "Verdichter"
+      },
+      "heating_pump": {
+        "name": "Heizungspumpe"
+      },
+      "source_pump": {
+        "name": "Quellenpumpe / Wasserpumpe / Ventilator"
+      },
+      "mixer_pump": {
+        "name": "Mischerpumpe"
+      },
+      "hot_water_pump": {
+        "name": "Warmwasserpumpe"
+      },
+      "four_way_valve": {
+        "name": "Vierwegeventil"
+      },
+      "reserve_1": {
+        "name": "Reserve 1"
+      },
+      "reserve_2": {
+        "name": "Reserve 2"
+      },
+      "reserve_3": {
+        "name": "Reserve 3"
+      },
+      "cooling_output": {
+        "name": "Reserve 4 Kühlausgang"
+      },
+      "reserve_5": {
+        "name": "Reserve 5"
+      },
+      "hot_water_block": {
+        "name": "Warmwassersperre"
+      },
+      "heating_block": {
+        "name": "Heizungssperre"
+      },
+      "utility_block": {
+        "name": "EVU-Sperre"
+      },
+      "sg_ready_1": {
+        "name": "SG Ready 1"
+      },
+      "sg_ready_2": {
+        "name": "SG Ready 2"
+      },
+      "reserve": {
+        "name": "Reserve"
+      }
     },
     "climate": {
-      "hot_water_temperature": {"name": "Warmwassertemperatur"},
-      "room_temperature": {"name": "Raumtemperatur"}
+      "hot_water_temperature": {
+        "name": "Warmwassertemperatur"
+      },
+      "room_temperature": {
+        "name": "Raumtemperatur"
+      }
+    }
+  },
+  "selector": {
+    "parity": {
+      "options": {
+        "N": "Keine",
+        "E": "Gerade",
+        "O": "Ungerade"
+      }
     }
   }
 }

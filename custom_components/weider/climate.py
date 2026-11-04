@@ -11,7 +11,6 @@ from weider_modbus import (
     ROOM_TARGET_MAX,
     ROOM_TARGET_MIN,
     TARGET_STEP,
-    WeiderWT16,
     plausible_temperature,
 )
 
@@ -21,6 +20,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
+from .connection import WeiderDevice
 from .coordinator import WeiderConfigEntry, WeiderCoordinator
 from .entity import WeiderEntity, is_supported
 
@@ -31,9 +31,9 @@ class ClimateDescription:
 
     key: str
     name: str
-    current_fn: Callable[[WeiderWT16], float | None]
+    current_fn: Callable[[WeiderDevice], float | None]
     target_key: str
-    set_fn: Callable[[WeiderWT16, float], Awaitable[None]]
+    set_fn: Callable[[WeiderDevice, float], Awaitable[None]]
     minimum: float
     maximum: float
     pump_key: str
@@ -57,7 +57,8 @@ DESCRIPTIONS = (
     ClimateDescription(
         key="room_temperature",
         name="Room temperature",
-        # Register 12 on the standard Modbus map, register 724 on a custom map.
+        # Register 12 on the standard Modbus TCP map, register 724 on a custom
+        # Modbus TCP map and on the RS485 map.
         current_fn=lambda device: device.current_room_temperature,
         target_key="room_target_temperature",
         set_fn=lambda device, value: device.async_set_room_target(value),

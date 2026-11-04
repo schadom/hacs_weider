@@ -6,13 +6,13 @@ from datetime import datetime
 import logging
 
 from modbus_connection import ModbusError
-from weider_modbus import WeiderWT16
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 from homeassistant.util import dt as dt_util
 
+from .connection import WeiderDevice
 from .const import (
     DOMAIN,
     FAILED_POLL_TOLERANCE,
@@ -29,7 +29,7 @@ type WeiderConfigEntry = ConfigEntry[WeiderCoordinator]
 COMMUNICATION_ERRORS = (ModbusError, TimeoutError, OSError)
 
 
-class WeiderCoordinator(DataUpdateCoordinator[WeiderWT16]):
+class WeiderCoordinator(DataUpdateCoordinator[WeiderDevice]):
     """Poll the complete device on one schedule.
 
     Gateways and heat pumps occasionally reset the TCP connection. The shared
@@ -38,7 +38,7 @@ class WeiderCoordinator(DataUpdateCoordinator[WeiderWT16]):
     FAILED_POLL_TOLERANCE consecutive polls before entities become unavailable.
     """
 
-    def __init__(self, hass: HomeAssistant, entry: WeiderConfigEntry, device: WeiderWT16) -> None:
+    def __init__(self, hass: HomeAssistant, entry: WeiderConfigEntry, device: WeiderDevice) -> None:
         super().__init__(hass, _LOGGER, name=DOMAIN, config_entry=entry, update_interval=SCAN_INTERVAL)
         self.device = device
         self.failed_polls = 0
@@ -53,7 +53,7 @@ class WeiderCoordinator(DataUpdateCoordinator[WeiderWT16]):
         return value
 
     async def async_write_target(
-        self, key: str, write: Callable[[WeiderWT16], Awaitable[None]], value: float
+        self, key: str, write: Callable[[WeiderDevice], Awaitable[None]], value: float
     ) -> None:
         """Write a target and show the new value right away.
 
@@ -88,7 +88,7 @@ class WeiderCoordinator(DataUpdateCoordinator[WeiderWT16]):
             await asyncio.sleep(RETRY_DELAY.total_seconds())
             await self.device.async_update()
 
-    async def _async_update_data(self) -> WeiderWT16:
+    async def _async_update_data(self) -> WeiderDevice:
         try:
             await self._async_poll()
         except COMMUNICATION_ERRORS as err:
