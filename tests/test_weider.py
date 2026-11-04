@@ -1024,10 +1024,11 @@ def test_climate_provides_native_and_legacy_temperature_members():
     from custom_components.weider.climate import WeiderClimate
 
     members = vars(WeiderClimate)
+    # Home Assistant wraps _attr_ members of the version it knows, so only
+    # check that both unit names are provided.
+    assert {"_attr_native_temperature_unit", "_attr_temperature_unit"} <= members.keys()
     for native, legacy in (
-        ("_attr_native_temperature_unit", "_attr_temperature_unit"),
         ("native_current_temperature", "current_temperature"),
         ("native_target_temperature", "target_temperature"),
     ):
-        assert native in members and legacy in members
-        assert members[native] == members[legacy]
+        assert members[native] is members[legacy]
