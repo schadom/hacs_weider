@@ -145,7 +145,7 @@ async def test_unsupported_measurement_creates_no_entity(hass, connection, caplo
     assert await hass.config_entries.async_setup(entry.entry_id)
     await hass.async_block_till_done()
     assert hass.states.get("sensor.weider_wt16_mixer_position") is None
-    assert len(hass.states.async_all("sensor")) == 27
+    assert len(hass.states.async_all("sensor")) == 30
     records = [r for r in caplog.records if "Skipping unsupported" in r.getMessage()]
     assert records
     assert {r.levelno for r in records} == {logging.INFO}
