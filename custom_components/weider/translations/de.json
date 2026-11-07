@@ -131,7 +131,7 @@
         "name": "Verdampfungstemperatur"
       },
       "condensation_temperature": {
-        "name": "Kondensationstemperatur"
+        "name": "Verflüssigungstemperatur"
       },
       "evaporator_temperature": {
         "name": "Verdampfertemperatur"
@@ -204,7 +204,7 @@
         "name": "Wärmemenge"
       },
       "active_error_code": {
-        "name": "Aktive Fehlernummer"
+        "name": "Aktuelle Störung (Nummer)"
       },
       "sg_ready_manual_mode": {
         "name": "SG-Ready-Betriebszustand (manuell)"
