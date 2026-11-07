@@ -191,7 +191,8 @@ SENSORS: tuple[WeiderSensorEntityDescription, ...] = (
             for field in ("sg_ready_1", "sg_ready_2")
         ),
     ),
-    # Values on the RS485 (Modbus RTU) map only.
+    # Values that only the RS485 (Modbus RTU) map provides, except the heating
+    # circuit 1 flow values and mixer 2 position, which Modbus TCP provides too.
     _temperature("hot_water_hysteresis", "settings"),
     _temperature("heating_limit_temperature", "settings"),
     _temperature("average_outdoor_temperature"),

@@ -31,8 +31,7 @@ HOT_WATER = "sensor.weider_wt16_hot_water_temperature"
 # Sensors for values that only the RS485 (Modbus RTU) map provides.
 RTU_ONLY_SENSORS = {
     "hot_water_hysteresis", "heating_limit_temperature", "average_outdoor_temperature",
-    "circuit_1_flow_target_temperature", "circuit_1_flow_temperature", "operating_season",
-    "mixer_2_position", "operating_hours", "heating_hours", "last_heating_runtime",
+    "operating_season", "operating_hours", "heating_hours", "last_heating_runtime",
     "heat_energy", "active_error_code", "sg_ready_manual_mode",
 }
 # Entities that are disabled by default.
@@ -410,7 +409,7 @@ async def test_setup_poll_recovery_and_unload(hass, connection):
     assert await hass.config_entries.async_setup(entry.entry_id)
     await hass.async_block_till_done()
     assert entry.state is ConfigEntryState.LOADED
-    assert len(hass.states.async_all("sensor")) == 28
+    assert len(hass.states.async_all("sensor")) == 31
     assert len(hass.states.async_all("binary_sensor")) == 20
     assert len(hass.states.async_all("climate")) == 2
     coordinator = entry.runtime_data
@@ -673,7 +672,7 @@ async def test_reserve_entities_disabled_by_default(hass, connection):
             assert entity_id is not None, key
             assert registry.async_get(entity_id).disabled_by is er.RegistryEntryDisabler.INTEGRATION
             assert hass.states.get(entity_id) is None
-    assert len(hass.states.async_all("sensor")) == 28 - len(RESERVE_SENSORS)
+    assert len(hass.states.async_all("sensor")) == 31 - len(RESERVE_SENSORS)
     assert len(hass.states.async_all("binary_sensor")) == 20 - len(RESERVE_BINARY_SENSORS)
     assert hass.states.get("binary_sensor.weider_wt16_compressor") is not None
     assert await hass.config_entries.async_unload(entry.entry_id)

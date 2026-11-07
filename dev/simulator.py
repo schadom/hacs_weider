@@ -18,7 +18,9 @@ def create_device() -> SimDevice:
         temperatures[address - 12] = value
     inputs = [
         SimData(12, values=temperatures, datatype=DataType.REGISTERS),
+        SimData(726, values=[315, 290], datatype=DataType.REGISTERS),
         SimData(736, values=50, datatype=DataType.REGISTERS),
+        SimData(767, values=0, datatype=DataType.REGISTERS),
         SimData(60164, values=[0, 120], datatype=DataType.REGISTERS),
         SimData(60168, values=[0, 30], datatype=DataType.REGISTERS),
         SimData(63000, count=16, values=0, datatype=DataType.REGISTERS),
