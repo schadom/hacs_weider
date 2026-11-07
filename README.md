@@ -87,9 +87,9 @@ Some values exist on only one connection:
   temperature, volume flow, flow switches, 4-way valve, SG Ready inputs and mode,
   last pump runtime and the active error text.
 - **Modbus RTU only:** hot water hysteresis, heating limit temperature, average
-  outdoor temperature, operating season, heating circuit 1 flow target and flow
-  temperature, mixer 2 position, operating hours, heating hours, last heating
-  runtime, heat energy, the active error number and the manual SG Ready mode.
+  outdoor temperature, operating season, operating hours, heating hours, last
+  heating runtime, heat energy, the active error number and the manual SG Ready
+  mode.
 
 The heat energy sensor can be used in the Energy dashboard. Not connected
 temperature sensors show as unknown.
@@ -126,7 +126,7 @@ The simulator is only accessible inside the Compose network. It supplies fixed
 measurements and accepts target-temperature writes in memory; it does not model
 heat-pump physics, firmware behavior, or temperature limits.
 
-Expect 28 sensors, 20 binary sensors, and two temperature controls. The sample
+Expect 31 sensors, 20 binary sensors, and two temperature controls. The sample
 hot-water temperature is 42.5 C and its target is 45 C. Change a target and check
 that the target sensor updates. To test recovery, stop and restart the simulator:
 
